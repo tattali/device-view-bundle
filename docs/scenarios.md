@@ -73,11 +73,13 @@ starts with an `ID` cell, every row must start with a well-formed ID: a mistyped
   `debug: false`), called with `$kernel->handle($request)` as the main request. Twig,
   WebProfilerBundle, sessions and fragments are enabled only where the area says so.
 - **Exceptions:** a row that expects an exception while the kernel handles a request (thrown by
-  a listener, a controller or the router: EVT-RED-07, EVT-REM-09, FAC-05, ROUT-06) calls
-  `$kernel->handle($request, HttpKernelInterface::MAIN_REQUEST, false)`, so the exception reaches
-  the test instead of becoming a 500 response. A row that names no request (a direct call such as
-  `requestAs()` in TST-06 or `getSwitchUrl()` in FAC-11, a template render in TWIG-05, TWIG-06
-  and TWIG-09, or a container build) calls the method in the test.
+  a listener, a controller or the router: EVT-RED-07, EVT-REM-09, FAC-05, the controller call of
+  FAC-11, ROUT-06) calls `$kernel->handle($request, <main-request type>, false)`, so the
+  exception reaches the test instead of becoming a 500 response. The main-request type is
+  `HttpKernelInterface::MAIN_REQUEST`, or `HttpKernelInterface::MASTER_REQUEST` below Symfony 5.3
+  (3.x and 4.x). A row or call that names no request (a direct call such as `requestAs()` in
+  TST-06 or the empty `RequestStack` call of FAC-11, a template render in TWIG-05, TWIG-06 and
+  TWIG-09, or a container build) calls the method in the test.
 - **Request:** `GET /view` means `Request::create('http://localhost/view', 'GET')`. A full URL is
   given when the scheme, host or port matter. `Request::create()` sets `REMOTE_ADDR: 127.0.0.1`.
 - **User agent:** `UA=iphone` sets `User-Agent` to the `iphone` entry of
@@ -96,8 +98,14 @@ starts with an `ID` cell, every row must start with a well-formed ID: a mistyped
   asserted; "no X" means the header is absent.
 - `Location`: the exact header value.
 - `Set-Cookie`: the exact raw value of the `device_view` cookie (`Cookie::__toString()`).
-  Shorthands, where `E(n)` is `gmdate('D, d M Y H:i:s T', now + n)` and tests allow one second of
-  clock drift:
+  `E(n)` is the expiry date as the line's `Cookie::__toString()` writes it, and tests allow one
+  second of clock drift:
+  - 3.x, 4.x and 5.x (Symfony below 6.1): `gmdate('D, d-M-Y H:i:s T', now + n)`, with dashes;
+  - 6.x, 7.x and main: `gmdate('D, d M Y H:i:s T', now + n)`, with spaces.
+
+  Every `expires=E(n)` in a row, in a shorthand or written out (CK-15), uses this definition. The
+  rest of the cookie string is the same on every line, so no row needs a Lines note for it.
+  Shorthands:
   - `SC(v)`: `device_view=v; path=/; httponly; samesite=lax` (a browser-session cookie)
   - `SCS(v)`: `device_view=v; path=/; secure; httponly; samesite=lax`
   - `SC(v, n)`: `device_view=v; expires=E(n); Max-Age=n; path=/; httponly; samesite=lax`
@@ -162,7 +170,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VAL-06 | Switch token must be a configured name | `views: { names: { desktop: d } }` | `GET /view?device_view=desktop` | 200 `"d detector"`, no `Location`, no `Set-Cookie` | planned |
 | VAL-07 | Stored token is trimmed and lower-cased | — | `GET /view`, `Cookie: device_view=MOBILE` | 200 `"mobile remembered"`, no `Set-Cookie` | planned |
 | VAL-08 | Forged cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL`, `Vary: [Cookie, User-Agent]`; debug log `Ignored an invalid device view from the remember storage.` | planned |
-| VAL-09 | Array cookie is ignored and expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL`, no error | planned |
+| VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error | planned |
 | VAL-10 | Empty cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL` | planned |
 | VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | planned |
 | VAL-12 | Forged session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = phone` | 200 `"desktop detector"`; the session no longer has `_device_view` | planned |
@@ -758,7 +766,7 @@ The kernel runs with `debug: true`, TwigBundle, WebProfilerBundle and
 | FAC-08 | `getSwitchUrl()` keeps the base URL | — | front controller `/app`: `GET http://localhost/app/view`; same calls | `/app/view?device_view=mobile`, `/app/?device_view=tablet` | planned |
 | FAC-09 | `getSwitchUrl()` uses the parameter and names | `switch: { parameter: view }`, `views: { names: { mobile: m } }` | `GET /view`; `getSwitchUrl('m')` | `/view?view=m` | planned |
 | FAC-10 | `getSwitchUrl()` outside a request | — | empty `RequestStack`; `getSwitchUrl('mobile')` | `/?device_view=mobile` | planned |
-| FAC-11 | Unknown switch target | — | `getSwitchUrl('mobile', 'back')` | `InvalidArgumentException`, message `Unknown switch target "back". Expected "current" or "home".` | planned |
+| FAC-11 | Unknown switch target | — | `getSwitchUrl('mobile', 'back')` called twice: in a controller during `GET /view`, and with an empty `RequestStack` | both calls throw `InvalidArgumentException`, message `Unknown switch target "back". Expected "current" or "home".` | planned |
 | FAC-12 | `setView()` after a read | — | in a controller, `UA=iphone`: read, then `setView('tablet')`, then read | `mobile`, then `tablet` with source Forced; `Vary: [Cookie, User-Agent]` (inputs already consulted stay) | planned |
 | FAC-13 | Sub-requests see the main view | — | `GET /with-sub-request`, `UA=iphone` | the sub-request controller's `getView()` is Mobile | planned |
 | FAC-14 | Autowiring | — | container | `DeviceView::class` is an alias of `device_view.device_view` | planned |
@@ -898,8 +906,9 @@ One named test per bug of the old bundle. Each also passes on every line.
 
 ## 29. Test helpers (TST), design.md section 10
 
-The helpers ship in `src/Test` for applications' own tests. The rows use the test app through a
-`KernelBrowser` (`framework.test: true`); "then `GET /view`" means `$client->request('GET', '/view')`.
+The helpers ship in `src/Test` for applications' own tests. The rows use the test app through
+the framework's test client (`KernelBrowser`, `Client` on 3.x; `framework.test: true`); "then
+`GET /view`" means `$client->request('GET', '/view')`.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
@@ -929,7 +938,11 @@ the area; if the owner disagrees, the rows change before they become active.
 - `setView($view, true)` is remembered with the `switch` trigger (REM-18, REM-19);
   `setConsent(true)` without a provider gives `consented_lifetime` (REM-23).
 - Developer API calls with an unknown view name or switch target throw `InvalidArgumentException`
-  (FAC-05, FAC-11, TWIG-09); request inputs never throw.
+  (FAC-05, FAC-11, TWIG-09); request inputs never throw. An argument error throws whether or not
+  there is a request (FAC-11); a missing request alone never throws (FAC-03, FAC-04, FAC-10).
+- An array value of the remember cookie (`device_view[a]=mobile`) is ignored and not expired: a
+  `device_view` deletion would not remove the browser's bracketed cookie, and would make every
+  later response private under `private_when_remembering` (VAL-09, HC-04).
 - Route default values: booleans or the strings `true`, `false`, `1`, `0`; other values are
   ignored with a debug log (RTE-04, RTE-08).
 - `Vary` keeps the response's values first, then adds the consulted inputs in the order they were
