@@ -11,9 +11,9 @@ namespace DeviceViewBundle\Tests\Scenario;
  * sub-area and a number, e.g. SW-03, CON-TAC-02 or CFG-100) and whose last cell is its status,
  * "planned" or "active", optionally followed by a Lines note in parentheses: "(6.x+)" for a
  * line and the lines after it, "(3.x-5.x)" for a range, "(main)" for one line. A row without a
- * Lines note applies to every line. In a table whose header starts with an "ID" cell, every
- * row must start with an ID, so a mistyped ID fails instead of hiding its scenario. Other rows
- * and lines are ignored.
+ * Lines note applies to every line. In a table whose header row (its first row) has a first
+ * cell starting with "ID" in any case ("ID", "Id", "IDs"), every row must start with an ID, so a
+ * mistyped ID fails instead of hiding its scenario. Other rows and lines are ignored.
  */
 final readonly class ScenarioCatalogue
 {
@@ -23,6 +23,11 @@ final readonly class ScenarioCatalogue
      * Anything shaped like an ID, valid or not: a malformed one is rejected rather than ignored.
      */
     public const string ID_LIKE_PATTERN = '[A-Z]{2,5}(?:-[A-Z]{2,5})?-\d+';
+
+    /**
+     * The header row of a scenario table: its first cell starts with "ID", in any case.
+     */
+    public const string ID_HEADER_PATTERN = '/^\|\s*id/i';
 
     public const string MALFORMED_ID_REASON = 'the number has at least two digits, and only numbers below 10 start with 0';
 
@@ -58,17 +63,21 @@ final readonly class ScenarioCatalogue
 
         $scenarios = [];
         $lines = [];
+        $inTable = false;
         $inScenarioTable = false;
         foreach ($rows as $index => $line) {
             $line = trim($line);
             $lineNumber = $index + 1;
             if (!str_starts_with($line, '|')) {
+                $inTable = false;
                 $inScenarioTable = false;
 
                 continue;
             }
 
-            if (1 === preg_match('/^\|\s*ID\s*\|/', $line)) {
+            $isHeader = !$inTable;
+            $inTable = true;
+            if ($isHeader && 1 === preg_match(self::ID_HEADER_PATTERN, $line)) {
                 $inScenarioTable = true;
 
                 continue;

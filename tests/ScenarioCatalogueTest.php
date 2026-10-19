@@ -153,6 +153,49 @@ final class ScenarioCatalogueTest extends TestCase
             MD);
     }
 
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideIdHeaderCells(): iterable
+    {
+        yield 'upper case' => ['ID'];
+        yield 'title case' => ['Id'];
+        yield 'lower case' => ['id'];
+        yield 'plural' => ['IDs'];
+        yield 'longer word' => ['Identifier'];
+    }
+
+    #[DataProvider('provideIdHeaderCells')]
+    public function testAHeaderCellStartingWithIdInAnyCaseMakesAScenarioTable(string $headerCell): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage('Row on line 4 of a scenario table has the first cell "Sw-03", which is not a scenario ID.');
+
+        ScenarioCatalogue::parse(<<<MD
+            | {$headerCell} | Scenario | Status |
+            |---|---|---|
+            | SW-01 | a | planned |
+            | Sw-03 | b | planned |
+            MD);
+    }
+
+    public function testOnlyTheHeaderRowOfATableCanMakeItAScenarioTable(): void
+    {
+        $catalogue = ScenarioCatalogue::parse(<<<'MD'
+            | Name | Value |
+            |---|---|
+            | ID | a data row, not a header |
+            | idle | another data row |
+            | Sw-02 | text in a table that is not a scenario table | planned |
+
+            | ID | Scenario | Status |
+            |---|---|---|
+            | SW-01 | a | planned |
+            MD);
+
+        self::assertSame(['SW-01'], $catalogue->ids());
+    }
+
     public function testRowsOfOtherTablesAreNotScenarios(): void
     {
         $catalogue = ScenarioCatalogue::parse(<<<'MD'

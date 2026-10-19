@@ -54,8 +54,9 @@ the behaviour. "Message contains" means a substring check, so the text Symfony a
 
 **Table rows.** A scenario is a table row whose first cell is the ID and whose last cell is the
 status, with its optional Lines note. A `|` inside a cell is written `\|`. In a table whose header
-starts with an `ID` cell, every row must start with a well-formed ID: a mistyped first cell
-(`Sw-03`, `SW-03a`, `**SW-03**`) fails the check instead of hiding the scenario.
+row has a first cell starting with `ID` in any case (`ID`, `Id`, `IDs`), every row must start with
+a well-formed ID: a mistyped first cell (`Sw-03`, `SW-03a`, `**SW-03**`) fails the check instead
+of hiding the scenario.
 
 ## Conventions
 
@@ -982,4 +983,7 @@ the area; if the owner disagrees, the rows change before they become active.
 - The test app adds stub routes on the skipped paths (`profiler_stub`, `wdt_stub`,
   `fragment_stub`), because a path without a route gets a 404 from the router before the switch
   and redirect listeners run (SKIP-04, SKIP-05, SKIP-07).
+- A table is a scenario table when the first cell of its header row starts with `ID` in any case
+  (`ID`, `Id`, `IDs`), so a table whose header was mistyped still fails on a mistyped row instead
+  of hiding its scenarios; a data row starting with `ID` does not count.
 - The exception and log messages of the rows above.
