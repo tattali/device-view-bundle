@@ -27,6 +27,9 @@ final class Kernel extends BaseKernel
 
     private readonly string $configHash;
 
+    /** @var callable|null */
+    private $exceptionHandlerBeforeBoot;
+
     /**
      * @param array<string, mixed> $deviceViewConfig the device_view configuration
      */
@@ -37,6 +40,32 @@ final class Kernel extends BaseKernel
     ) {
         parent::__construct($environment, $debug);
         $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug]));
+    }
+
+    #[\Override]
+    public function boot(): void
+    {
+        if (!$this->booted) {
+            $this->exceptionHandlerBeforeBoot = self::currentExceptionHandler();
+        }
+
+        parent::boot();
+    }
+
+    /**
+     * Also removes the exception handlers that booting added.
+     *
+     * On Symfony 8.0, FrameworkBundle::boot() registers the ErrorHandler and nothing removes
+     * it, so PHPUnit marks the test risky.
+     */
+    #[\Override]
+    public function shutdown(): void
+    {
+        parent::shutdown();
+
+        while (null !== ($handler = self::currentExceptionHandler()) && $handler !== $this->exceptionHandlerBeforeBoot) {
+            restore_exception_handler();
+        }
     }
 
     #[\Override]
@@ -87,6 +116,14 @@ final class Kernel extends BaseKernel
     protected function configureRoutes(RoutingConfigurator $routes): void
     {
         $routes->import(__DIR__.'/config/routes.php');
+    }
+
+    private static function currentExceptionHandler(): ?callable
+    {
+        $handler = set_exception_handler(null);
+        restore_exception_handler();
+
+        return $handler;
     }
 
     /**
