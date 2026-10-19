@@ -53,7 +53,9 @@ the behaviour. "Message contains" means a substring check, so the text Symfony a
 (e.g. `Invalid configuration for path "…":`) may differ between lines.
 
 **Table rows.** A scenario is a table row whose first cell is the ID and whose last cell is the
-status, with its optional Lines note. A `|` inside a cell is written `\|`.
+status, with its optional Lines note. A `|` inside a cell is written `\|`. In a table whose header
+starts with an `ID` cell, every row must start with a well-formed ID: a mistyped first cell
+(`Sw-03`, `SW-03a`, `**SW-03**`) fails the check instead of hiding the scenario.
 
 ## Conventions
 
@@ -70,6 +72,12 @@ status, with its optional Lines note. A `|` inside a cell is written `\|`.
 - **Kernel:** `tests/App/Kernel` (FrameworkBundle with `framework.test: true`, this bundle,
   `debug: false`), called with `$kernel->handle($request)` as the main request. Twig,
   WebProfilerBundle, sessions and fragments are enabled only where the area says so.
+- **Exceptions:** a row that expects an exception while the kernel handles a request (thrown by
+  a listener, a controller or the router: EVT-RED-07, EVT-REM-09, FAC-05, ROUT-06) calls
+  `$kernel->handle($request, HttpKernelInterface::MAIN_REQUEST, false)`, so the exception reaches
+  the test instead of becoming a 500 response. A row that names no request (a direct call such as
+  `requestAs()` in TST-06 or `getSwitchUrl()` in FAC-11, a template render in TWIG-05, TWIG-06
+  and TWIG-09, or a container build) calls the method in the test.
 - **Request:** `GET /view` means `Request::create('http://localhost/view', 'GET')`. A full URL is
   given when the scheme, host or port matter. `Request::create()` sets `REMOTE_ADDR: 127.0.0.1`.
 - **User agent:** `UA=iphone` sets `User-Agent` to the `iphone` entry of
@@ -262,16 +270,16 @@ mobiledetect/mobiledetectlib 4, which the PHP 7 lines cannot install (design.md 
 | DET-AUTO-03 | Auto with no library | `detector: { id: auto }`, neither library installed | container build | `LogicException`, message: "No device detector is installed. Run `composer require mobiledetect/mobiledetectlib` (or `matomo/device-detector`), or set `device_view.detector.id` to `client_hints` or to your own service id." | planned |
 | DET-AUTO-04 | No library is needed when no library detector is used | `detector: { id: chain, chain: [client_hints, static] }`, neither library installed | container build | builds; `GET /view` `CH=?1` gives 200 `"mobile detector"` | planned |
 
-Tests of DET-AUTO and of the missing-package errors (CFG-46 to CFG-48) simulate a missing
-package: the availability check is injectable, or the test runs in a separate process with the
-package's autoloading removed.
+Tests of DET-AUTO and of the missing-package errors (CFG-46 to CFG-48, CFG-54 and CFG-55)
+simulate a missing package: the availability check is injectable, or the test runs in a separate
+process with the package's autoloading removed.
 
 ## 5. Switch (SW), design.md sections 4, 5 and 6
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | SW-01 | Switch to the current page | — | `GET /view?device_view=mobile` | 302, `Location: /view`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)`, no `Vary` | planned |
-| SW-02 | Other query parameters are kept in order | — | `GET /view?a=1&device_view=mobile&b=2` | 302, `Location: /view?a=1&b=2` | planned |
+| SW-02 | Other query parameters are kept in order | — | `GET /view?b=2&device_view=mobile&a=1` | 302, `Location: /view?b=2&a=1` (not sorted) | planned |
 | SW-03 | The query is rebuilt with RFC 3986 encoding | — | `GET /view?q=a+b&tags[]=x&device_view=mobile` | 302, `Location: /view?q=a%20b&tags%5B0%5D=x` | planned |
 | SW-04 | The base URL is kept | — | front controller `/app`: `GET http://localhost/app/view?device_view=mobile` | 302, `Location: /app/view` | planned |
 | SW-05 | `target: home` | `switch: { target: home }` | `GET /view?a=1&device_view=mobile` | 302, `Location: /`, `Set-Cookie: SC(mobile)` | planned |
@@ -350,6 +358,7 @@ All rows switch with `GET /view?device_view=mobile` (302, `Location: /view`) unl
 | CK-13 | `raw: true` | `remember: { cookie: { raw: true } }` | switch | `Set-Cookie: SC(mobile)`; the `Cookie` object is raw | planned |
 | CK-14 | Persistent cookie over HTTPS | `TAC` | `GET https://localhost/view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `Set-Cookie: SCS(mobile, 31536000)` | planned |
 | CK-15 | The expired cookie carries the configured attributes | `remember: { cookie: { name: dv, path: /shop, domain: .example.com } }` | `GET /view`, `Cookie: dv=phone` | `Set-Cookie: dv=deleted; expires=E(-31536001); Max-Age=0; path=/shop; domain=.example.com; httponly; samesite=lax` | planned |
+| CK-16 | `same_site: none` with `secure: auto` over HTTP | `remember: { cookie: { same_site: none } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=none` (written as configured; browsers drop a `samesite=none` cookie without `secure`, so this setting needs HTTPS) | planned |
 
 ## 8. Session storage (SES), design.md sections 4 and 7
 
@@ -584,7 +593,7 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 | RTE-07 | `_device_view_remember: false` stops a detected write | `remember: { detected_view: true }` | `GET /no-remember`, `UA=iphone` | 200 `"mobile detector"`, no `Set-Cookie` | planned |
 | RTE-08 | `_device_view_remember: 'false'` as a string | — | `GET /no-remember-xml?device_view=mobile` | 302, no `Set-Cookie` | planned |
 | RTE-09 | `_device_view_remember: true` does not bypass consent | `TAC`, `remember: { detected_view: true }` | `GET /remember`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 200 `"mobile detector"`, no `Set-Cookie` | planned |
-| RTE-10 | Custom route default keys | `M`, `route_defaults: { redirect: _dv_redirect, remember: _dv_remember }` | `GET http://www.example.com/custom-keys?device_view=mobile`; then `GET http://www.example.com/no-redirect` `UA=iphone` | 302 `Location: /custom-keys`, no `Set-Cookie`; then 302 to `https://m.example.com/no-redirect?device_view=mobile` (the default key is no longer read) | planned |
+| RTE-10 | Custom route default keys | `M`, `route_defaults: { redirect: _dv_redirect, remember: _dv_remember }` | `GET http://www.example.com/custom-keys` `UA=iphone`; then `GET http://www.example.com/custom-keys?device_view=desktop` `UA=iphone`; then `GET http://www.example.com/no-redirect` `UA=iphone` | 200 `"mobile detector"`, no `Location` (`_dv_redirect: none` is read); then 302, `Location: /custom-keys`, no `Set-Cookie` (`_dv_remember: false` is read); then 302, `Location: https://m.example.com/no-redirect?device_view=mobile` (the default key is no longer read) | planned |
 
 ## 13. Vary (VARY), design.md section 6
 
@@ -630,7 +639,7 @@ parameter is ignored), redirects, remembers or expires a stored value.
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | SKIP-01 | The fragment path is skipped | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
-| SKIP-02 | `skip.fragments: false` | as SKIP-01, plus `skip: { fragments: false }` | as SKIP-01 | 302, `Location: https://m.example.com/_fragment?…&device_view=mobile` | planned |
+| SKIP-02 | `skip.fragments: false` | as SKIP-01, plus `skip: { fragments: false }` | as SKIP-01 | 302, `Location` = `https://m.example.com/_fragment?` + the query of the signed URL the test sent, rebuilt as in RED-25 (same parameter order, RFC 3986 encoding) + `&device_view=mobile`; the test computes this value from the URL it signed | planned |
 | SKIP-03 | A custom fragment path is skipped | as SKIP-01 with `framework.fragments.path: /_frag` | the signed `/_frag?…` URL | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
 | SKIP-04 | `/_fragment` when fragments are off | `M`, `remember: { detected_view: true }` (no `framework.fragments`, route `fragment_stub`) | `GET http://www.example.com/_fragment`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
 | SKIP-05 | Profiler paths are skipped by default | `M` (routes `profiler_stub` and `wdt_stub`) | `GET http://www.example.com/_profiler/abc`, then `GET http://www.example.com/_wdt/abc`, `UA=iphone` | 200 `"mobile detector"` each time, no `Location` | planned |
@@ -802,7 +811,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-29 | `storage: none` with `detected_view` | `remember: { storage: none, detected_view: true }` | container build | message contains `device_view.remember.detected_view cannot be true when device_view.remember.storage is "none".` | planned |
 | CFG-30 | `storage: none` with a consent provider | `remember: { storage: none }`, `TAC` | container build | message contains `device_view.consent.provider cannot be set when device_view.remember.storage is "none".` | planned |
 | CFG-31 | `consent.provider` service | `consent: { provider: app.not_a_checker }` | container build | message contains `The service "app.not_a_checker" set in device_view.consent.provider must implement DeviceViewBundle\Consent\ConsentCheckerInterface.` | planned |
-| CFG-32 | Consent key and cookie not empty | `consent: { provider: tarteaucitron, key: '' }` | container build | message contains `The path "device_view.consent.key" cannot contain an empty value` | planned |
+| CFG-32 | Consent key not empty | `consent: { provider: tarteaucitron, key: '' }` | container build | message contains `The path "device_view.consent.key" cannot contain an empty value` | planned |
 | CFG-33 | Host required | `redirect: { mobile: { enabled: true } }` | container build | message contains `device_view.redirect.mobile.host is required when the mobile redirect is enabled.` | planned |
 | CFG-34 | Host must be absolute | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | message contains `device_view.redirect.mobile.host "m.example.com" must be an absolute http(s) URL with a host, an optional port and an optional path, and no query, fragment or user info.` | planned |
 | CFG-35 | Host without query | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/?a=1' } }` | container build | the CFG-34 message for `"https://m.example.com/?a=1"` | planned |
@@ -823,6 +832,9 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-50 | `services.redirect_policy` service | `services: { redirect_policy: app.nope }` | container build | message contains `The service "app.nope" set in device_view.services.redirect_policy does not exist.` | planned |
 | CFG-51 | `services.remember_policy` service | `services: { remember_policy: app.not_a_policy }` | container build | message contains `The service "app.not_a_policy" set in device_view.services.remember_policy must implement DeviceViewBundle\Remember\RememberPolicyInterface.` | planned |
 | CFG-52 | The defaults are valid | `{}` (no `detector` key) with both libraries installed | container build | builds | planned |
+| CFG-53 | Consent cookie not empty | `consent: { provider: tarteaucitron, cookie: '' }` | container build | message contains `The path "device_view.consent.cookie" cannot contain an empty value` | planned |
+| CFG-54 | Mobile Detect in the chain not installed | `detector: { id: chain }` (chain `[client_hints, mobile_detect]`), mobiledetect not installed | container build | `LogicException`, message `The "mobile_detect" detector in device_view.detector.chain needs mobiledetect/mobiledetectlib. Run "composer require mobiledetect/mobiledetectlib", or remove it from device_view.detector.chain.` | planned |
+| CFG-55 | Matomo in the chain not installed | `detector: { id: chain, chain: [client_hints, matomo] }`, matomo not installed | container build | `LogicException`, message `The "matomo" detector in device_view.detector.chain needs matomo/device-detector. Run "composer require matomo/device-detector", or remove it from device_view.detector.chain.` | planned |
 
 ## 25. Configuration reference (REF), design.md section 12
 
@@ -882,7 +894,7 @@ One named test per bug of the old bundle. Each also passes on every line.
 | REG-16 | Invalid config fails at build, not at request time | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | `InvalidConfigurationException` (CFG-34) before any request | planned |
 | REG-17 | No cookie on a first visit | — | `GET /view`, `UA=iphone`, no cookie | 200 `"mobile detector"`, no `Set-Cookie` | planned |
 | REG-18 | The desktop redirect works | `D` | `GET https://m.example.com/`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/?device_view=desktop` | planned |
-| REG-19 | A view never leaks to the next request | `M` | one kernel: `GET https://m.example.com/?device_view=desktop`, then `GET https://m.example.com/` `UA=iphone` with no cookie | second response: 200, no `Location` | planned |
+| REG-19 | A view never leaks to the next request | `M`, `D` | one kernel: `GET https://m.example.com/view?device_view=desktop` `UA=iphone`, then `GET https://m.example.com/view` `UA=iphone` with no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`; second response: 200 `"mobile detector"`, no `Location` (a leaked desktop view would redirect to `www`) | planned |
 
 ## 29. Test helpers (TST), design.md section 10
 
@@ -940,6 +952,20 @@ the area; if the owner disagrees, the rows change before they become active.
   requests; it uses `android_phone_reduced` with `Sec-CH-UA-Mobile: ?1` for mobile,
   `ipad_legacy` for tablet and `desktop_firefox` for desktop, so that every built-in detector
   gives the asked view and only mobile sends the hint (TST-01 to TST-05).
+- A switch to the view already stored writes the cookie again, which renews its lifetime
+  (SW-21).
+- The consent checker is asked only when a remember write is planned, so a page that writes
+  nothing never reads the consent cookie (REM-26).
+- A configured host with its scheme's default port (`https://m.example.com:443`) matches the
+  host without a port, and the port is left out of the `Location` (RED-14, REG-07).
+- `BeforeRedirectEvent::setStatus()` with a status outside 301, 302, 303, 307 and 308, and
+  `BeforeRememberEvent::setLifetime()` with a negative value, throw `InvalidArgumentException`
+  (EVT-RED-07, EVT-REM-09).
+- `same_site: none` with `secure: auto` over plain HTTP writes the cookie as configured, without
+  `secure`; browsers drop it, so this setting needs HTTPS. The bundle neither adds `secure` nor
+  lowers `same_site` (CK-16).
+- A library detector named in `detector.chain` whose package is missing fails the container
+  build with its own message, which names the chain (CFG-54, CFG-55).
 - The test app adds stub routes on the skipped paths (`profiler_stub`, `wdt_stub`,
   `fragment_stub`), because a path without a route gets a 404 from the router before the switch
   and redirect listeners run (SKIP-04, SKIP-05, SKIP-07).
