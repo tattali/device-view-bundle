@@ -9,6 +9,7 @@ use DeviceViewBundle\Tests\Fixtures\ScenarioCitation\MalformedCitingClass;
 use DeviceViewBundle\Tests\Fixtures\ScenarioCitation\ThreeDigitCitingClass;
 use DeviceViewBundle\Tests\Scenario\CitedScenarios;
 use DeviceViewBundle\Tests\Scenario\ScenarioCatalogue;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -124,6 +125,49 @@ final class ScenarioCatalogueTest extends TestCase
         $this->expectExceptionMessage('malformed ID "CFG-001"');
 
         ScenarioCatalogue::parse("| CFG-001 | a | planned |\n");
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideNearlyIdFirstCells(): iterable
+    {
+        yield 'lower-case letters' => ['Sw-03'];
+        yield 'a suffix after the number' => ['SW-03a'];
+        yield 'bold' => ['**SW-03**'];
+        yield 'code' => ['`SW-03`'];
+        yield 'empty' => [''];
+    }
+
+    #[DataProvider('provideNearlyIdFirstCells')]
+    public function testARowOfAScenarioTableMustStartWithAnId(string $firstCell): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage(\sprintf('Row on line 4 of a scenario table has the first cell "%s", which is not a scenario ID.', $firstCell));
+
+        ScenarioCatalogue::parse(<<<MD
+            | ID | Scenario | Status |
+            |---|---|---|
+            | SW-01 | a | planned |
+            | {$firstCell} | b | planned |
+            MD);
+    }
+
+    public function testRowsOfOtherTablesAreNotScenarios(): void
+    {
+        $catalogue = ScenarioCatalogue::parse(<<<'MD'
+            | Route | Path | Behaviour |
+            |---|---|---|
+            | `home` | `/` | Body |
+
+            | ID | Scenario | Status |
+            | :-- | --- | --: |
+            | SW-01 | a | planned |
+
+            | Sw-02 | text after the table ended | planned |
+            MD);
+
+        self::assertSame(['SW-01'], $catalogue->ids());
     }
 
     public function testARowWithoutAKnownStatusIsRejected(): void

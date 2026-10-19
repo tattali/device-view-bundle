@@ -11,7 +11,9 @@ namespace DeviceViewBundle\Tests\Scenario;
  * sub-area and a number, e.g. SW-03, CON-TAC-02 or CFG-100) and whose last cell is its status,
  * "planned" or "active", optionally followed by a Lines note in parentheses: "(6.x+)" for a
  * line and the lines after it, "(3.x-5.x)" for a range, "(main)" for one line. A row without a
- * Lines note applies to every line. Other rows and lines are ignored.
+ * Lines note applies to every line. In a table whose header starts with an "ID" cell, every
+ * row must start with an ID, so a mistyped ID fails instead of hiding its scenario. Other rows
+ * and lines are ignored.
  */
 final readonly class ScenarioCatalogue
 {
@@ -56,13 +58,34 @@ final readonly class ScenarioCatalogue
 
         $scenarios = [];
         $lines = [];
+        $inScenarioTable = false;
         foreach ($rows as $index => $line) {
             $line = trim($line);
+            $lineNumber = $index + 1;
+            if (!str_starts_with($line, '|')) {
+                $inScenarioTable = false;
+
+                continue;
+            }
+
+            if (1 === preg_match('/^\|\s*ID\s*\|/', $line)) {
+                $inScenarioTable = true;
+
+                continue;
+            }
+
+            if (1 === preg_match('/^[\s|:-]+$/', $line)) {
+                continue;
+            }
+
+            if ($inScenarioTable && 1 === preg_match('/^\|\s*([^|]*?)\s*\|/', $line, $firstCell) && !self::isIdLike($firstCell[1])) {
+                throw new \UnexpectedValueException(\sprintf('Row on line %d of a scenario table has the first cell "%s", which is not a scenario ID.', $lineNumber, $firstCell[1]));
+            }
+
             if (1 !== preg_match('/^\|\s*('.self::ID_LIKE_PATTERN.')\s*\|/', $line, $id)) {
                 continue;
             }
 
-            $lineNumber = $index + 1;
             $id = $id[1];
             if (!self::isId($id)) {
                 throw new \UnexpectedValueException(\sprintf('Scenario row on line %d has the malformed ID "%s": %s.', $lineNumber, $id, self::MALFORMED_ID_REASON));
