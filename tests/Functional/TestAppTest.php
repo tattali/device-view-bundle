@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Functional;
 
 use DeviceViewBundle\Tests\App\Kernel;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,6 +42,7 @@ final class TestAppTest extends TestCase
         self::assertFileDoesNotExist(\dirname(__DIR__).'/App/config/reference.php');
     }
 
+    #[Group('CFG-01')]
     public function testTheConfigurationRootIsDeviceView(): void
     {
         $this->kernel = new Kernel(['unknown_key' => true]);
