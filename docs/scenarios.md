@@ -301,7 +301,7 @@ process with the package's autoloading removed.
 | SW-12 | POST is not switched | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | planned |
 | SW-13 | HEAD is switched | — | `HEAD /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | planned |
 | SW-14 | `redirect.methods` also governs the switch | `redirect: { methods: [GET, POST] }` | `POST /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | planned |
-| SW-15 | `cache_control: null` leaves Symfony's default | `redirect: { cache_control: null }` | `GET /view?device_view=mobile` | 302, `Cache-Control: no-cache, private` | planned |
+| SW-15 | `cache_control: null` sets nothing; the cookie makes the redirect private | `redirect: { cache_control: null }` | `GET /view?device_view=mobile` | 302, `Set-Cookie: SC(mobile)`, `Cache-Control: private` (Symfony's computed `no-cache, private` is not a stored directive, so the `private_when_remembering` step leaves `private` only) | planned |
 | SW-16 | Custom `cache_control` | `redirect: { cache_control: 'no-cache, no-store, must-revalidate' }` | `GET /view?device_view=mobile` | 302, `Cache-Control: must-revalidate, no-cache, no-store, private` (Symfony sorts the directives and adds `private`) | planned |
 | SW-17 | Switch to a view served by another host | `M` | `GET http://www.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: https://m.example.com/blog/post?a=1&device_view=mobile`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)` | planned |
 | SW-18 | Switch arriving on the target host | `M` | `GET https://m.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: /blog/post?a=1`, `Set-Cookie: SCS(mobile)` | planned |
@@ -986,4 +986,11 @@ the area; if the owner disagrees, the rows change before they become active.
 - A table is a scenario table when the first cell of its header row starts with `ID` in any case
   (`ID`, `Id`, `IDs`), so a table whose header was mistyped still fails on a mistyped row instead
   of hiding its scenarios; a data row starting with `ID` does not count.
+- A redirect the bundle returns gets `redirect.cache_control` when it is built. When the same
+  response also writes the remember cookie, the `private_when_remembering` step then calls
+  `Response::setPrivate()`, which adds `private` to the directives already set and removes
+  `public`: the default gives `no-store, private` (SW-01, SW-17), a custom value keeps its
+  directives plus `private` (SW-16), and with `cache_control: null` no directive is stored, so
+  Symfony's computed `no-cache, private` becomes `private` (SW-15). A redirect that writes no
+  cookie keeps `redirect.cache_control`, or Symfony's `no-cache, private` with `null` (RED-23).
 - The exception and log messages of the rows above.
