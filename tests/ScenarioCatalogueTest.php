@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests;
 
 use DeviceViewBundle\Tests\Fixtures\ScenarioCitation\CitingClass;
+use DeviceViewBundle\Tests\Fixtures\ScenarioCitation\MalformedCitingClass;
+use DeviceViewBundle\Tests\Fixtures\ScenarioCitation\ThreeDigitCitingClass;
 use DeviceViewBundle\Tests\Scenario\CitedScenarios;
 use DeviceViewBundle\Tests\Scenario\ScenarioCatalogue;
 use PHPUnit\Framework\TestCase;
@@ -17,12 +19,17 @@ use PHPUnit\Framework\TestCase;
  */
 final class ScenarioCatalogueTest extends TestCase
 {
+    /**
+     * The line this branch implements, as written in the Lines notes of docs/scenarios.md.
+     */
+    private const string LINE = 'main';
+
     public function testEveryActiveScenarioIsCitedByATest(): void
     {
         $catalogue = ScenarioCatalogue::fromFile(self::cataloguePath());
         $cited = CitedScenarios::inDirectory(__DIR__, __NAMESPACE__);
 
-        $uncited = array_values(array_diff($catalogue->activeIds(), array_keys($cited)));
+        $uncited = array_values(array_diff($catalogue->activeIdsFor(self::LINE), array_keys($cited)));
 
         self::assertSame([], $uncited, 'Active scenarios that no test cites. Cite each one with #[Group(\'<ID>\')] or set it back to planned.');
     }
@@ -32,9 +39,9 @@ final class ScenarioCatalogueTest extends TestCase
         $catalogue = ScenarioCatalogue::fromFile(self::cataloguePath());
         $cited = CitedScenarios::inDirectory(__DIR__, __NAMESPACE__);
 
-        $unknown = array_values(array_diff(array_keys($cited), $catalogue->ids()));
+        $unknown = array_values(array_diff(array_keys($cited), $catalogue->idsFor(self::LINE)));
 
-        self::assertSame([], $unknown, 'Tests cite scenario IDs that docs/scenarios.md does not define.');
+        self::assertSame([], $unknown, 'Tests cite scenario IDs that docs/scenarios.md does not define, or that do not apply to this line.');
     }
 
     public function testTheCatalogueReadsTheIdAndStatusOfEveryScenarioRow(): void
@@ -47,12 +54,76 @@ final class ScenarioCatalogueTest extends TestCase
             | SW-01 | switch to `mobile\|tablet` | planned |
             | CON-TAC-02 | tarteaucitron | active |
             |  RED-10  | redirect |  active  |
+            | CFG-100 | config | planned |
 
             | Not an ID | text | active |
             MD);
 
-        self::assertSame(['SW-01', 'CON-TAC-02', 'RED-10'], $catalogue->ids());
-        self::assertSame(['CON-TAC-02', 'RED-10'], $catalogue->activeIds());
+        self::assertSame(['SW-01', 'CON-TAC-02', 'RED-10', 'CFG-100'], $catalogue->ids());
+        self::assertSame(['CON-TAC-02', 'RED-10'], $catalogue->activeIdsFor('main'));
+    }
+
+    public function testALinesNoteLimitsAScenarioToSomeLines(): void
+    {
+        $catalogue = ScenarioCatalogue::parse(<<<'MD'
+            | ID | Scenario | Status |
+            |---|---|---|
+            | SW-01 | every line | active |
+            | DET-MD-06 | from 6.x on | active (6.x+) |
+            | CFG-13 | from 6.x on, not done | planned (6.x+) |
+            | REG-01 | PHP 7 lines only | active (3.x-5.x) |
+            | REG-02 | one line | active (main) |
+            MD);
+
+        self::assertSame(['SW-01', 'DET-MD-06', 'CFG-13', 'REG-01', 'REG-02'], $catalogue->ids());
+        self::assertSame(['SW-01', 'DET-MD-06', 'CFG-13', 'REG-02'], $catalogue->idsFor('main'));
+        self::assertSame(['SW-01', 'DET-MD-06', 'REG-02'], $catalogue->activeIdsFor('main'));
+        self::assertSame(['SW-01', 'DET-MD-06', 'CFG-13'], $catalogue->idsFor('6.x'));
+        self::assertSame(['SW-01', 'REG-01'], $catalogue->idsFor('5.x'));
+        self::assertSame(['SW-01', 'REG-01'], $catalogue->activeIdsFor('3.x'));
+        self::assertSame(['SW-01', 'REG-01'], $catalogue->idsFor('4.x'));
+    }
+
+    public function testAnUnknownLineInALinesNoteIsRejected(): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage('Scenario DET-MD-06 on line 1 names an unknown line "2.x". Known lines: 3.x, 4.x, 5.x, 6.x, 7.x, main.');
+
+        ScenarioCatalogue::parse("| DET-MD-06 | cache | planned (2.x+) |\n");
+    }
+
+    public function testAnEmptyLineRangeIsRejected(): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage('Scenario REG-01 on line 1 has an empty line range "6.x-5.x".');
+
+        ScenarioCatalogue::parse("| REG-01 | x | planned (6.x-5.x) |\n");
+    }
+
+    public function testAnUnknownLineIsRejectedWhenAsked(): void
+    {
+        $catalogue = ScenarioCatalogue::parse("| SW-01 | x | planned |\n");
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown line "8.x". Known lines: 3.x, 4.x, 5.x, 6.x, 7.x, main.');
+
+        $catalogue->idsFor('8.x');
+    }
+
+    public function testAnIdShapedRowWithAMalformedNumberIsRejected(): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage('Scenario row on line 2 has the malformed ID "SW-1": the number has at least two digits, and only numbers below 10 start with 0.');
+
+        ScenarioCatalogue::parse("| SW-01 | a | planned |\n| SW-1 | b | planned |\n");
+    }
+
+    public function testAThreeDigitIdWithALeadingZeroIsRejected(): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage('malformed ID "CFG-001"');
+
+        ScenarioCatalogue::parse("| CFG-001 | a | planned |\n");
     }
 
     public function testARowWithoutAKnownStatusIsRejected(): void
@@ -97,6 +168,19 @@ final class ScenarioCatalogueTest extends TestCase
             ],
             CitedScenarios::inClasses([CitingClass::class]),
         );
+    }
+
+    public function testAThreeDigitCitationIsRead(): void
+    {
+        self::assertSame(['CFG-100' => [ThreeDigitCitingClass::class.'::testOne']], CitedScenarios::inClasses([ThreeDigitCitingClass::class]));
+    }
+
+    public function testAnIdShapedCitationWithAMalformedNumberIsRejected(): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+        $this->expectExceptionMessage(MalformedCitingClass::class.'::testOne cites the malformed scenario ID "SW-1": the number has at least two digits, and only numbers below 10 start with 0.');
+
+        CitedScenarios::inClasses([MalformedCitingClass::class]);
     }
 
     public function testTheTestDirectoryIsSearchedForTestClasses(): void

@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * A test cites a scenario with a PHPUnit group named after the scenario ID, on the test
  * method or on the test class: #[Group('SW-03')]. Groups that are not shaped like an ID are
- * ignored.
+ * ignored; a group shaped like an ID with a malformed number (e.g. SW-1) is rejected.
  */
 final class CitedScenarios
 {
@@ -57,7 +57,7 @@ final class CitedScenarios
         $cited = [];
         foreach ($classes as $class) {
             $reflection = new \ReflectionClass($class);
-            foreach (self::ids($reflection) as $id) {
+            foreach (self::ids($reflection, $class) as $id) {
                 $cited[$id][] = $class;
             }
 
@@ -66,7 +66,7 @@ final class CitedScenarios
                     continue;
                 }
 
-                foreach (self::ids($method) as $id) {
+                foreach (self::ids($method, $class.'::'.$method->getName()) as $id) {
                     $cited[$id][] = $class.'::'.$method->getName();
                 }
             }
@@ -77,17 +77,24 @@ final class CitedScenarios
 
     /**
      * @param \ReflectionClass<object>|\ReflectionMethod $element
+     * @param string                                     $name    the class or Class::method, for the error message
      *
      * @return list<string>
      */
-    private static function ids(\ReflectionClass|\ReflectionMethod $element): array
+    private static function ids(\ReflectionClass|\ReflectionMethod $element, string $name): array
     {
         $ids = [];
         foreach ($element->getAttributes(Group::class) as $attribute) {
             $group = $attribute->newInstance()->name();
-            if (1 === preg_match('/^'.ScenarioCatalogue::ID_PATTERN.'$/', $group)) {
-                $ids[] = $group;
+            if (!ScenarioCatalogue::isIdLike($group)) {
+                continue;
             }
+
+            if (!ScenarioCatalogue::isId($group)) {
+                throw new \UnexpectedValueException(\sprintf('%s cites the malformed scenario ID "%s": %s.', $name, $group, ScenarioCatalogue::MALFORMED_ID_REASON));
+            }
+
+            $ids[] = $group;
         }
 
         return $ids;

@@ -22,10 +22,28 @@ runs the tests of one scenario. Groups that are not shaped like an ID are ignore
 - `active`: implemented; at least one test cites it.
 
 The PR that implements a scenario cites it in its tests and sets it to `active` in the same PR.
-`tests/ScenarioCatalogueTest.php` runs in every CI job. It fails when an active scenario is not
-cited by any test, or when a test cites an ID this file does not define.
 
-**IDs.** `AREA-NN` or `AREA-SUB-NN`: AREA and SUB are 2 to 5 capital letters, NN is two digits.
+**Lines.** A scenario applies to every line unless its status cell ends with a Lines note in
+parentheses:
+
+- `(6.x+)`: that line and every later one (`planned (6.x+)`);
+- `(3.x-5.x)`: that range of lines;
+- `(main)`: that line only.
+
+The lines, lowest first, are `3.x`, `4.x`, `5.x`, `6.x`, `7.x` and `main`. On a line outside the
+note, the scenario does not apply, whatever its status: no test may cite it there, and the
+cross-line parity check counts it as not applicable rather than missing. A Lines note is only for
+a feature that a line cannot have (e.g. a library version it cannot install), never for work left
+to do.
+
+**Check.** `tests/ScenarioCatalogueTest.php` runs in every CI job. Its `LINE` constant names the
+line of the branch (`main` here). It fails when an active scenario that applies to the line is not
+cited by any test, or when a test cites an ID this file does not define or that does not apply to
+the line.
+
+**IDs.** `AREA-NN` or `AREA-SUB-NN`: AREA and SUB are 2 to 5 capital letters, NN is a number of at
+least two digits, written with a leading zero below 10 only (`SW-03`, `CFG-52`, `CFG-100`). A row
+or a group shaped like an ID with another number (`SW-1`, `CFG-001`) is an error, not ignored.
 IDs are never renumbered, reused or deleted. When a planned expectation turns out wrong, the PR
 that implements the scenario fixes the row in place and says so.
 
@@ -35,7 +53,7 @@ the behaviour. "Message contains" means a substring check, so the text Symfony a
 (e.g. `Invalid configuration for path "…":`) may differ between lines.
 
 **Table rows.** A scenario is a table row whose first cell is the ID and whose last cell is the
-status. A `|` inside a cell is written `\|`.
+status, with its optional Lines note. A `|` inside a cell is written `\|`.
 
 ## Conventions
 
@@ -178,6 +196,9 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 
 ### Mobile Detect (DET-MD)
 
+DET-MD-06 and CFG-13 apply from 6.x on: `detector.mobile_detect.cache` needs
+mobiledetect/mobiledetectlib 4, which the PHP 7 lines cannot install (design.md sections 4 and 13).
+
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | DET-MD-01 | Every user agent fixture | — | `GET /view` once per entry of `tests/Fixtures/user-agents.php`, with its user agent | body `"<expected.mobile_detect> detector"`, or `"desktop default"` when it is null | planned |
@@ -185,7 +206,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | DET-MD-03 | A new MobileDetect per call | — | one kernel: `GET /view` `UA=iphone`, then `GET /view` `UA=desktop_chrome`, then `UA=ipad_legacy` | `"mobile detector"`, `"desktop detector"`, `"tablet detector"` | planned |
 | DET-MD-04 | Configured headers are passed and listed in `Vary` | `detector: { mobile_detect: { headers: [User-Agent, X-Device-User-Agent] } }` | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent, X-Device-User-Agent]` | planned |
 | DET-MD-05 | Headers not configured are not passed | — | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"desktop detector"`, `Vary: [Cookie, User-Agent]` | planned |
-| DET-MD-06 | PSR-16 cache | `detector: { mobile_detect: { cache: app.detector_cache } }` (a `Psr16Cache` over an `ArrayAdapter`) | `GET /view` `UA=iphone`, twice | `"mobile detector"` both times; the cache holds at least one item after the first request | planned |
+| DET-MD-06 | PSR-16 cache | `detector: { mobile_detect: { cache: app.detector_cache } }` (a `Psr16Cache` over an `ArrayAdapter`) | `GET /view` `UA=iphone`, twice | `"mobile detector"` both times; the cache holds at least one item after the first request | planned (6.x+) |
 
 ### Matomo (DET-MAT)
 
@@ -753,7 +774,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-10 | Chain cannot nest | `detector: { id: chain, chain: [auto, chain] }` | container build | message contains `device_view.detector.chain cannot contain "auto" or "chain".` | planned |
 | CFG-11 | Chain service missing | `detector: { id: chain, chain: [app.nope] }` | container build | message contains `The service "app.nope" set in device_view.detector.chain does not exist.` | planned |
 | CFG-12 | Mobile Detect headers not empty | `detector: { mobile_detect: { headers: [] } }` | container build | message contains `device_view.detector.mobile_detect.headers must list at least one header.` | planned |
-| CFG-13 | Mobile Detect cache interface | `detector: { mobile_detect: { cache: app.not_a_cache } }` | container build | message contains `The service "app.not_a_cache" set in device_view.detector.mobile_detect.cache must implement Psr\SimpleCache\CacheInterface.` | planned |
+| CFG-13 | Mobile Detect cache interface | `detector: { mobile_detect: { cache: app.not_a_cache } }` | container build | message contains `The service "app.not_a_cache" set in device_view.detector.mobile_detect.cache must implement Psr\SimpleCache\CacheInterface.` | planned (6.x+) |
 | CFG-14 | Matomo cache pool interface | `detector: { id: matomo, matomo: { cache_pool: app.not_a_cache } }` | container build | message contains `The service "app.not_a_cache" set in device_view.detector.matomo.cache_pool must implement Psr\Cache\CacheItemPoolInterface.` | planned |
 | CFG-15 | `phablet_as` enum | `detector: { matomo: { phablet_as: desktop } }` | container build | message contains `The value "desktop" is not allowed for path "device_view.detector.matomo.phablet_as"` | planned |
 | CFG-16 | `static.view` enum | `detector: { static: { view: phone } }` | container build | message contains `The value "phone" is not allowed for path "device_view.detector.static.view"` | planned |
