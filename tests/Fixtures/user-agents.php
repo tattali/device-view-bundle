@@ -74,12 +74,28 @@ return [
         'expected' => ['mobile_detect' => 'mobile', 'matomo' => 'mobile', 'client_hints' => 'mobile'],
         'note' => 'Matomo reports a phablet; the matomo value follows detector.matomo.phablet_as (mobile by default, tablet when set so).',
     ],
+    'feature_phone' => [
+        'user_agent' => 'Mozilla/5.0 (Mobile; Crosscall_Core-S4_4G; rv:48.0; CAEN) Gecko/48.0 Firefox/48.0 KAIOS/2.5.3.2',
+        'sec_ch_ua_mobile' => null,
+        'source' => 'matomo/device-detector 6.5.2, Tests/fixtures/feature_phone.yml (Crosscall Core-S4, KaiOS): https://github.com/matomo-org/device-detector/blob/6.5.2/Tests/fixtures/feature_phone.yml',
+        'date' => '2026-10-20',
+        'expected' => ['mobile_detect' => 'mobile', 'matomo' => 'mobile', 'client_hints' => null],
+        'note' => 'Matomo reports a feature phone, which the bundle maps to mobile.',
+    ],
     'kindle_silk' => [
         'user_agent' => 'Mozilla/5.0 (Linux; Android 4.4.3; KFTHWI Build/KTU84M) AppleWebKit/537.36 (KHTML, like Gecko) Silk/44.1.54 like Chrome/44.0.2403.63 Safari/537.36',
         'sec_ch_ua_mobile' => null,
         'source' => 'Amazon Silk Developer Guide, user agent string examples, tablet: https://docs.aws.amazon.com/silk/latest/developerguide/user-agent.html',
         'date' => '2026-10-20',
         'expected' => ['mobile_detect' => 'tablet', 'matomo' => 'tablet', 'client_hints' => null],
+    ],
+    'smart_tv' => [
+        'user_agent' => 'Mozilla/5.0 (SMART-TV; Linux; Tizen 2.3) AppleWebkit/538.1 (KHTML, like Gecko) SamsungBrowser/1.0 TV Safari/538.1',
+        'sec_ch_ua_mobile' => null,
+        'source' => 'matomo/device-detector 6.5.2, Tests/fixtures/tv.yml (Samsung Smart TV, Tizen 2.3): https://github.com/matomo-org/device-detector/blob/6.5.2/Tests/fixtures/tv.yml',
+        'date' => '2026-10-20',
+        'expected' => ['mobile_detect' => 'desktop', 'matomo' => 'desktop', 'client_hints' => null],
+        'note' => 'Matomo reports a tv, one of the other known device types the bundle maps to desktop.',
     ],
     'desktop_chrome' => [
         'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
