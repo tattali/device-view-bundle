@@ -367,7 +367,7 @@ All rows switch with `GET /view?device_view=mobile` (302, `Location: /view`) unl
 | CK-13 | `raw: true` | `remember: { cookie: { raw: true } }` | switch | `Set-Cookie: SC(mobile)`; the `Cookie` object is raw | planned |
 | CK-14 | Persistent cookie over HTTPS | `TAC` | `GET https://localhost/view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `Set-Cookie: SCS(mobile, 31536000)` | planned |
 | CK-15 | The expired cookie carries the configured attributes | `remember: { cookie: { name: dv, path: /shop, domain: .example.com } }` | `GET /view`, `Cookie: dv=phone` | `Set-Cookie: dv=deleted; expires=E(-31536001); Max-Age=0; path=/shop; domain=.example.com; httponly; samesite=lax` | planned |
-| CK-16 | `same_site: none` with `secure: auto` over HTTP | `remember: { cookie: { same_site: none } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=none` (written as configured; browsers drop a `samesite=none` cookie without `secure`, so this setting needs HTTPS) | planned |
+| CK-16 | `same_site: none` forces `secure`, even over HTTP | `remember: { cookie: { same_site: none } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=none` (`secure: auto` would leave it out over HTTP; `same_site: none` adds it whatever `secure` says, and `secure: false` is refused by CFG-26) | planned |
 
 ## 8. Session storage (SES), design.md sections 4 and 7
 
@@ -976,9 +976,9 @@ the area; if the owner disagrees, the rows change before they become active.
 - `BeforeRedirectEvent::setStatus()` with a status outside 301, 302, 303, 307 and 308, and
   `BeforeRememberEvent::setLifetime()` with a negative value, throw `InvalidArgumentException`
   (EVT-RED-07, EVT-REM-09).
-- `same_site: none` with `secure: auto` over plain HTTP writes the cookie as configured, without
-  `secure`; browsers drop it, so this setting needs HTTPS. The bundle neither adds `secure` nor
-  lowers `same_site` (CK-16).
+- `same_site: none` always writes the `secure` attribute, whatever `secure` says, even over plain
+  HTTP where `secure: auto` would leave it out: browsers drop a `samesite=none` cookie without
+  `secure` (CK-16). `same_site: none` with `secure: false` is a configuration error (CFG-26).
 - A library detector named in `detector.chain` whose package is missing fails the container
   build with its own message, which names the chain (CFG-54, CFG-55).
 - The test app adds stub routes on the skipped paths (`profiler_stub`, `wdt_stub`,
