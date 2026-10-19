@@ -68,8 +68,15 @@ of hiding the scenario.
   - `M`: `redirect: { mobile: { enabled: true, host: 'https://m.example.com' } }`
   - `T`: `redirect: { tablet: { enabled: true, host: 'https://t.example.com' } }`
   - `D`: `redirect: { desktop: { enabled: true, host: 'https://www.example.com' } }`
-  - `TH`: `trusted_header: { name: X-Device-View }`, with `framework.trusted_proxies: '127.0.0.1'`
+  - `TH`: `trusted_header: { name: X-Device-View }`, with the trusted proxy `127.0.0.1` (below)
   - `<tool>` in a consent area: `consent: { provider: <tool> }`
+- **Trusted proxies:** they are framework settings, so they never appear in the Config cell,
+  which holds `device_view` keys only. `TH` rows trust the proxy `127.0.0.1`; RED-35 also trusts
+  the `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto` headers. On 5.x, 6.x, 7.x and
+  main the test kernel sets them with `framework: { trusted_proxies: …, trusted_headers: … }`.
+  **Lines note:** 3.x and 4.x set trusted proxies with `Request::setTrustedProxies()` in the test
+  front controller instead of framework config, because Symfony 3.4 deprecates
+  `framework.trusted_proxies` and Symfony 4.4 has no such option.
 - **Kernel:** `tests/App/Kernel` (FrameworkBundle with `framework.test: true`, this bundle,
   `debug: false`), called with `$kernel->handle($request)` as the main request. Twig,
   WebProfilerBundle, sessions and fragments are enabled only where the area says so.
@@ -587,7 +594,7 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 | RED-32 | Sub-requests are never redirected | `M` | `GET https://m.example.com/with-sub-request?sub=http%3A%2F%2Fwww.example.com%2Fview`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Location` | planned |
 | RED-33 | Disabled redirects leave the view lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary` | planned |
 | RED-34 | Enabled redirects resolve the view | `M` | `GET https://m.example.com/`, `UA=iphone` | 200 `"home page"`, `Vary: [Cookie, User-Agent]` | planned |
-| RED-35 | The host forwarded by a trusted proxy is the current host | `M`, `framework: { trusted_proxies: '127.0.0.1', trusted_headers: [x-forwarded-for, x-forwarded-host, x-forwarded-proto] }` | `GET http://10.0.0.5/view`, `X-Forwarded-Host: m.example.com`, `X-Forwarded-Proto: https`, `UA=iphone`; then the same request with `REMOTE_ADDR: 203.0.113.9` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/view?device_view=mobile` (an untrusted client's forwarded host is ignored) | planned |
+| RED-35 | The host forwarded by a trusted proxy is the current host | `M` | trusted proxy `127.0.0.1` with the `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto` headers (Conventions, Trusted proxies); `GET http://10.0.0.5/view`, `X-Forwarded-Host: m.example.com`, `X-Forwarded-Proto: https`, `UA=iphone`; then the same request with `REMOTE_ADDR: 203.0.113.9` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/view?device_view=mobile` (an untrusted client's forwarded host is ignored) | planned |
 
 ## 12. Per-route overrides (RTE), design.md sections 4 and 7
 
@@ -994,4 +1001,7 @@ the area; if the owner disagrees, the rows change before they become active.
   directives plus `private` (SW-16), and with `cache_control: null` no directive is stored, so
   Symfony's computed `no-cache, private` becomes `private` (SW-15). A redirect that writes no
   cookie keeps `redirect.cache_control`, or Symfony's `no-cache, private` with `null` (RED-23).
+- Trusted proxies stay out of the Config cell, which holds `device_view` keys only; 3.x and 4.x
+  set them with `Request::setTrustedProxies()` in the test front controller (Conventions,
+  Trusted proxies; `TH` rows, RED-35).
 - The exception and log messages of the rows above.
