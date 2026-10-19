@@ -171,7 +171,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VAL-06 | Switch token must be a configured name | `views: { names: { desktop: d } }` | `GET /view?device_view=desktop` | 200 `"d detector"`, no `Location`, no `Set-Cookie` | planned |
 | VAL-07 | Stored token is trimmed and lower-cased | — | `GET /view`, `Cookie: device_view=MOBILE` | 200 `"mobile remembered"`, no `Set-Cookie` | planned |
 | VAL-08 | Forged cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL`, `Vary: [Cookie, User-Agent]`; debug log `Ignored an invalid device view from the remember storage.` | planned |
-| VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error | planned |
+| VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error; debug log `Ignored an invalid device view from the remember storage.` | planned |
 | VAL-10 | Empty cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL` | planned |
 | VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | planned |
 | VAL-12 | Forged session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = phone` | 200 `"desktop detector"`; the session no longer has `_device_view` | planned |
@@ -943,7 +943,8 @@ the area; if the owner disagrees, the rows change before they become active.
   there is a request (FAC-11); a missing request alone never throws (FAC-03, FAC-04, FAC-10).
 - An array value of the remember cookie (`device_view[a]=mobile`) is ignored and not expired: a
   `device_view` deletion would not remove the browser's bracketed cookie, and would make every
-  later response private under `private_when_remembering` (VAL-09, HC-04).
+  later response private under `private_when_remembering`. Like any invalid input, it is logged
+  at debug level with `Ignored an invalid device view from the remember storage.` (VAL-09, HC-04).
 - Route default values: booleans or the strings `true`, `false`, `1`, `0`; other values are
   ignored with a debug log (RTE-04, RTE-08).
 - `Vary` keeps the response's values first, then adds the consulted inputs in the order they were
