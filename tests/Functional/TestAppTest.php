@@ -33,6 +33,14 @@ final class TestAppTest extends TestCase
         self::assertArrayHasKey('DeviceViewBundle', $this->kernel->getBundles());
     }
 
+    public function testTheAppWritesNoFileInTheRepository(): void
+    {
+        $this->kernel = new Kernel(debug: true);
+        $this->kernel->boot();
+
+        self::assertFileDoesNotExist(\dirname(__DIR__).'/App/config/reference.php');
+    }
+
     public function testTheConfigurationRootIsDeviceView(): void
     {
         $this->kernel = new Kernel(['unknown_key' => true]);

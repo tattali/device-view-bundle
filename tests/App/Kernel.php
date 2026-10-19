@@ -93,6 +93,19 @@ final class Kernel extends BaseKernel
         return self::runDir().'/'.$this->configHash.'/log';
     }
 
+    /**
+     * FrameworkBundle writes reference.php into the config directory when it builds the
+     * container. The test app points it to a directory that does not exist, so nothing is
+     * written into the repository.
+     *
+     * @return array<array-key, mixed>
+     */
+    #[\Override]
+    protected function getKernelParameters(): array
+    {
+        return ['.kernel.config_dir' => self::runDir().'/'.$this->configHash.'/config'] + parent::getKernelParameters();
+    }
+
     #[\Override]
     protected function getContainerClass(): string
     {
