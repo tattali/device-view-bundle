@@ -50,7 +50,8 @@
     },
     "conflict": {
         "matomo/device-detector": "<6.1",
-        "mobiledetect/mobiledetectlib": "<4.8"
+        "mobiledetect/mobiledetectlib": "<4.8",
+        "symfony/event-dispatcher-contracts": "<2.5.3 || >=3.0,<3.4.2"
     },
     "suggest": {
         "matomo/device-detector": "To detect the view with Matomo Device Detector (^6.1)",
