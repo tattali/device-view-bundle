@@ -1,0 +1,65 @@
+{
+    "name": "tattali/device-view-bundle",
+    "description": "Symfony bundle that serves the mobile, tablet or desktop view of a site, with any device detection library, a view switch, consent-aware remembering and per-view host redirects.",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "keywords": [
+        "symfony",
+        "bundle",
+        "mobile",
+        "tablet",
+        "device detection",
+        "mobile detect",
+        "responsive",
+        "view switch",
+        "cookie consent"
+    ],
+    "authors": [
+        {
+            "name": "Nikolay Ivlev"
+        },
+        {
+            "name": "Théo Attali"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "symfony/config": "^8.0",
+        "symfony/dependency-injection": "^8.0",
+        "symfony/http-kernel": "^8.0"
+    },
+    "require-dev": {
+        "matomo/device-detector": "^6.1",
+        "mobiledetect/mobiledetectlib": "^4.8",
+        "phpunit/phpunit": "^12.5",
+        "symfony/filesystem": "^8.0",
+        "symfony/framework-bundle": "^8.0",
+        "symfony/http-foundation": "^8.0",
+        "symfony/routing": "^8.0",
+        "symfony/twig-bundle": "^8.0",
+        "symfony/web-profiler-bundle": "^8.0",
+        "twig/twig": "^3.21"
+    },
+    "conflict": {
+        "matomo/device-detector": "<6.1",
+        "mobiledetect/mobiledetectlib": "<4.8"
+    },
+    "suggest": {
+        "matomo/device-detector": "To detect the view with Matomo Device Detector (^6.1)",
+        "mobiledetect/mobiledetectlib": "To detect the view with Mobile Detect (^4.8)",
+        "twig/twig": "To use the view functions in Twig templates (^3.21)"
+    },
+    "autoload": {
+        "psr-4": {
+            "DeviceViewBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "DeviceViewBundle\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
