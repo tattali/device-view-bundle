@@ -136,6 +136,15 @@ final class DetectorConfigTest extends TestCase
         $this->boot(['detector' => ['id' => 'app.not_a_detector']], ['app.not_a_detector' => \stdClass::class]);
     }
 
+    public function testADetectorServiceCannotBeTheDetectorAlias(): void
+    {
+        // the CFG-58 message for detector.id
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('device_view.detector.id cannot be "device_view.detector", the alias it sets: set it to the id of your own service.');
+
+        $this->boot(['detector' => ['id' => 'device_view.detector']]);
+    }
+
     public function testAnEmptyDetectorIdFails(): void
     {
         $this->expectException(InvalidConfigurationException::class);

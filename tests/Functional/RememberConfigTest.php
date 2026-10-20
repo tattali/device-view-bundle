@@ -268,6 +268,15 @@ final class RememberConfigTest extends TestCase
         self::assertInstanceOf(ArrayStorage::class, $this->service('test.device_view.storage'));
     }
 
+    #[Group('CFG-58')]
+    public function testAStorageServiceCannotBeTheStorageAlias(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('device_view.remember.storage cannot be "device_view.storage", the alias it sets: set it to the id of your own service.');
+
+        $this->boot(['remember' => ['storage' => 'device_view.storage']]);
+    }
+
     public function testStorageIsNotEmpty(): void
     {
         $this->expectException(InvalidConfigurationException::class);

@@ -13,6 +13,7 @@ use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\ViewSwitch\SwitchTarget;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
@@ -71,6 +72,7 @@ final class DeviceViewBundle extends AbstractBundle
             }
             $id = 'device_view.detector.mobile_detect';
         } else {
+            self::assertNotTheAlias($id, 'device_view.detector', 'device_view.detector.id');
             $checks[] = [$id, 'device_view.detector.id', DeviceDetectorInterface::class];
         }
 
@@ -117,6 +119,7 @@ final class DeviceViewBundle extends AbstractBundle
         if (\in_array($storage, ['cookie', 'session', 'none'], true)) {
             $storage = 'device_view.storage.'.$storage;
         } else {
+            self::assertNotTheAlias($storage, 'device_view.storage', 'device_view.remember.storage');
             $checks[] = [$storage, 'device_view.remember.storage', ViewStorageInterface::class];
         }
         $container->services()->alias('device_view.storage', $storage);
@@ -136,6 +139,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $resolver = $config['services']['resolver'];
         if (null !== $resolver) {
+            self::assertNotTheAlias($resolver, 'device_view.resolver', 'device_view.services.resolver');
             $checks[] = [$resolver, 'device_view.services.resolver', ViewResolverInterface::class];
         }
         $container->services()->alias('device_view.resolver', $resolver ?? 'device_view.resolver.default');
@@ -153,6 +157,16 @@ final class DeviceViewBundle extends AbstractBundle
         }
 
         throw new \LogicException('No device detector is installed. Run `composer require mobiledetect/mobiledetectlib` (or `matomo/device-detector`), or set `device_view.detector.id` to `client_hints` or to your own service id.');
+    }
+
+    /**
+     * A service id set in the configuration cannot be the alias the bundle points to it.
+     */
+    private static function assertNotTheAlias(string $id, string $alias, string $path): void
+    {
+        if ($alias === $id) {
+            throw new InvalidConfigurationException(\sprintf('%s cannot be "%s", the alias it sets: set it to the id of your own service.', $path, $alias));
+        }
     }
 
     private static function isInstalled(string $package, string $class): bool
