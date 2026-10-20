@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeviceViewBundle;
 
 use DeviceViewBundle\DependencyInjection\Compiler\CheckConfiguredServicesPass;
+use DeviceViewBundle\DependencyInjection\Compiler\CheckSessionStoragePass;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\Detector\MobileDetectDetector;
 use DeviceViewBundle\Remember\ViewStorageInterface;
@@ -36,6 +37,7 @@ final class DeviceViewBundle extends AbstractBundle
     public function build(ContainerBuilder $container): void
     {
         $container->addCompilerPass(new CheckConfiguredServicesPass());
+        $container->addCompilerPass(new CheckSessionStoragePass());
     }
 
     /**
@@ -118,6 +120,7 @@ final class DeviceViewBundle extends AbstractBundle
             $checks[] = [$storage, 'device_view.remember.storage', ViewStorageInterface::class];
         }
         $container->services()->alias('device_view.storage', $storage);
+        $builder->setParameter(CheckSessionStoragePass::PARAMETER, 'session' === $remember['storage']);
         $builder->getDefinition('device_view.remember_policy')->setArguments([
             $remember['on_switch'],
             $remember['detected_view'],

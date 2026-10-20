@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Functional;
 
 use DeviceViewBundle\Remember\CookieStorage;
+use DeviceViewBundle\Remember\SessionStorage;
+use DeviceViewBundle\Tests\App\Remember\ArrayStorage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -242,6 +244,30 @@ final class RememberConfigTest extends TestCase
         $this->boot(['remember' => ['storage' => 'app.nope']]);
     }
 
+    #[Group('CFG-57')]
+    public function testSessionStorageNeedsTheFrameworkSession(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('device_view.remember.storage "session" needs the framework session: enable framework.session, or set device_view.remember.storage to another storage.');
+
+        $this->boot(['remember' => ['storage' => 'session']]);
+    }
+
+    public function testSessionStorageBuildsWithTheFrameworkSession(): void
+    {
+        $this->boot(['remember' => ['storage' => 'session']], framework: ['session' => true]);
+
+        self::assertInstanceOf(SessionStorage::class, $this->service('test.device_view.storage'));
+    }
+
+    public function testOtherStoragesNeedNoFrameworkSession(): void
+    {
+        $this->boot(['remember' => ['storage' => 'none']]);
+        $this->boot(['remember' => ['storage' => 'app.array_storage']], ['app.array_storage' => ArrayStorage::class]);
+
+        self::assertInstanceOf(ArrayStorage::class, $this->service('test.device_view.storage'));
+    }
+
     public function testStorageIsNotEmpty(): void
     {
         $this->expectException(InvalidConfigurationException::class);
@@ -278,7 +304,7 @@ final class RememberConfigTest extends TestCase
 
     public function testOnlyStorageNoneForbidsRememberingADetectedView(): void
     {
-        $this->boot(['remember' => ['storage' => 'session', 'detected_view' => true]]);
+        $this->boot(['remember' => ['storage' => 'session', 'detected_view' => true]], framework: ['session' => true]);
         $this->boot(['remember' => ['storage' => 'none', 'detected_view' => false]]);
 
         self::assertSame('home page', $this->handle(self::request('/'))->getContent());

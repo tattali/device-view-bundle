@@ -853,6 +853,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-54 | Mobile Detect in the chain not installed | `detector: { id: chain }` (chain `[client_hints, mobile_detect]`), mobiledetect not installed | container build | `LogicException`, message `The "mobile_detect" detector in device_view.detector.chain needs mobiledetect/mobiledetectlib. Run "composer require mobiledetect/mobiledetectlib", or remove it from device_view.detector.chain.` | planned |
 | CFG-55 | Matomo in the chain not installed | `detector: { id: chain, chain: [client_hints, matomo] }`, matomo not installed | container build | `LogicException`, message `The "matomo" detector in device_view.detector.chain needs matomo/device-detector. Run "composer require matomo/device-detector", or remove it from device_view.detector.chain.` | planned |
 | CFG-56 | `remember.storage` service missing | `remember: { storage: app.nope }` | container build | message contains `The service "app.nope" set in device_view.remember.storage does not exist.` | active |
+| CFG-57 | Session storage needs the framework session | `remember: { storage: session }`, `framework.session` not enabled | container build | message contains `device_view.remember.storage "session" needs the framework session: enable framework.session, or set device_view.remember.storage to another storage.` | active |
 
 ## 25. Configuration reference (REF), design.md section 12
 
@@ -945,6 +946,8 @@ the area; if the owner disagrees, the rows change before they become active.
 - Removing a forged cookie counts as writing the remember cookie for `private_when_remembering`
   (HC-04).
 - Session storage adds `Cookie` to `Vary`, because the session id is a cookie (SES-02, SES-03).
+- `remember.storage: session` fails the container build when `framework.session` is not
+  enabled, instead of failing on the first switch at runtime (CFG-57).
 - `setView($view, true)` is remembered with the `switch` trigger (REM-18, REM-19);
   `setConsent(true)` without a provider gives `consented_lifetime` (REM-23).
 - Developer API calls with an unknown view name or switch target throw `InvalidArgumentException`

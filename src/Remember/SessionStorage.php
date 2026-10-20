@@ -36,8 +36,7 @@ final readonly class SessionStorage implements ViewStorageInterface
     }
 
     /**
-     * Needs the framework session (framework.session): without it, the request has none and
-     * getSession() throws.
+     * Needs the framework session (framework.session), which the container build requires.
      */
     #[\Override]
     public function write(Request $request, Response $response, string $name, int $lifetime): void
