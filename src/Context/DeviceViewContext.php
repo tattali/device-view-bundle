@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Context;
 
+use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Resolver\ResolvedView;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
+use DeviceViewBundle\Routing\RouteDefaults;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use Symfony\Component\HttpFoundation\Request;
@@ -78,7 +80,23 @@ final class DeviceViewContext
      */
     public private(set) bool $responseBuilt = false;
 
+    /**
+     * The action the redirect route default of the matched route sets, once read: null when the
+     * route sets none or an invalid one, or nothing has read it yet.
+     */
+    public private(set) ?RedirectAction $routeRedirect = null;
+
+    /**
+     * What the remember route default of the matched route says, once read: false stops any
+     * write; null when the route says nothing or something invalid, or nothing has read it yet.
+     */
+    public private(set) ?bool $routeRemember = null;
+
     private bool $switchRead = false;
+
+    private bool $routeRedirectRead = false;
+
+    private bool $routeRememberRead = false;
 
     /**
      * @param bool $skipped whether the request is skipped: it still resolves its view, but never switches, redirects or remembers
@@ -113,6 +131,35 @@ final class DeviceViewContext
         }
 
         return $this->switchView;
+    }
+
+    /**
+     * Reads the redirect route default the first time it is asked for, then returns the same
+     * action, so an invalid value is logged once even though several listeners ask. It is asked
+     * for only after routing, when the request attributes hold the defaults of the matched route.
+     */
+    public function routeRedirect(RouteDefaults $defaults, Request $request): ?RedirectAction
+    {
+        if (!$this->routeRedirectRead) {
+            $this->routeRedirectRead = true;
+            $this->routeRedirect = $defaults->redirect($request);
+        }
+
+        return $this->routeRedirect;
+    }
+
+    /**
+     * Reads the remember route default the first time it is asked for, then returns the same
+     * answer, as routeRedirect() does.
+     */
+    public function routeRemember(RouteDefaults $defaults, Request $request): ?bool
+    {
+        if (!$this->routeRememberRead) {
+            $this->routeRememberRead = true;
+            $this->routeRemember = $defaults->remember($request);
+        }
+
+        return $this->routeRemember;
     }
 
     /**

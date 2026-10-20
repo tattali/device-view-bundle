@@ -22,8 +22,8 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockFileSessionStorage;
  * Remembering the view in the session (remember.storage: session), through the kernel, with the
  * framework session on the mock file storage.
  *
- * Rows that also expect a Vary header or need a route default stay planned;
- * the tests without a group check the rest of them.
+ * Rows that also expect a Vary header stay planned; the tests without a group check the rest of
+ * them.
  */
 final class SessionTest extends TestCase
 {
@@ -116,6 +116,18 @@ final class SessionTest extends TestCase
         $response = $this->handle(self::request('/view', 'iphone', cookies: ['tarteaucitron' => '!device_view=false']));
 
         self::assertSame(200, $response->getStatusCode());
+        $this->assertNoSessionStarted($response);
+    }
+
+    #[Group('SES-08')]
+    public function testTheRouteDefaultStopsASessionWrite(): void
+    {
+        $this->bootWithSession();
+
+        $response = $this->handle(self::request('/no-remember?device_view=mobile'));
+
+        self::assertSame(302, $response->getStatusCode());
+        self::assertSame('/no-remember', $response->headers->get('Location'));
         $this->assertNoSessionStarted($response);
     }
 

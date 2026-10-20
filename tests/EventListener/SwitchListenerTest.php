@@ -11,6 +11,7 @@ use DeviceViewBundle\Redirect\RedirectPolicy;
 use DeviceViewBundle\Remember\RememberPolicy;
 use DeviceViewBundle\Resolver\Step\SwitchStep;
 use DeviceViewBundle\Resolver\ViewResolver;
+use DeviceViewBundle\Routing\RouteDefaults;
 use DeviceViewBundle\Tests\App\Kernel;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
@@ -187,6 +188,55 @@ final class SwitchListenerTest extends TestCase
         $response = $event->getResponse();
         self::assertInstanceOf(RedirectResponse::class, $response);
         self::assertSame('/view', $response->getTargetUrl(), 'a view no redirect serves keeps the switch redirect');
+    }
+
+    public function testTheRouteActionDecidesWhereTheSwitchGoes(): void
+    {
+        $resolver = new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))]);
+        $listener = new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, routeDefaults: new RouteDefaults());
+
+        [$none, $context] = self::request('http://www.example.com/no-redirect?device_view=mobile');
+        $none->attributes->set('_device_view_redirect', 'none');
+        $event = self::event($none);
+        $listener->onKernelRequest($event);
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('/no-redirect', $response->getTargetUrl());
+        self::assertSame(RedirectAction::None, $context->routeRedirect);
+
+        [$withoutPath] = self::request('http://www.example.com/without-path?a=1&device_view=mobile');
+        $withoutPath->attributes->set('_device_view_redirect', 'redirect_without_path');
+        $event = self::event($withoutPath);
+        $listener->onKernelRequest($event);
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('https://m.example.com/?device_view=mobile', $response->getTargetUrl());
+    }
+
+    public function testASwitchTheRouteDoesNotRememberStaysOnTheHostOfItsView(): void
+    {
+        $resolver = new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))]);
+        $listener = new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy(), routeDefaults: new RouteDefaults());
+
+        [$request, $context] = self::request('https://m.example.com/no-remember?device_view=mobile');
+        $request->attributes->set('_device_view_remember', false);
+        $event = self::event($request);
+        $listener->onKernelRequest($event);
+        self::assertNull($event->getResponse(), 'a redirect to /no-remember would forget the switch');
+        self::assertTrue($context->switched);
+        self::assertFalse($context->routeRemember);
+
+        [$remembered] = self::request('https://m.example.com/remember?device_view=mobile');
+        $remembered->attributes->set('_device_view_remember', true);
+        $event = self::event($remembered);
+        $listener->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'true lets the policy remember the switch');
+
+        [$withoutReader] = self::request('https://m.example.com/no-remember?device_view=mobile');
+        $withoutReader->attributes->set('_device_view_remember', false);
+        $event = self::event($withoutReader);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy())->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'without the reader, routes override nothing');
     }
 
     private static function redirectPolicy(): RedirectPolicy

@@ -15,6 +15,7 @@ use DeviceViewBundle\Resolver\Step\ForcedStep;
 use DeviceViewBundle\Resolver\Step\RememberedStep;
 use DeviceViewBundle\Resolver\Step\SwitchStep;
 use DeviceViewBundle\Resolver\ViewResolver;
+use DeviceViewBundle\Routing\RouteDefaults;
 use DeviceViewBundle\Tests\App\Consent\CountingConsentChecker;
 use DeviceViewBundle\Tests\App\Consent\HeaderConsent;
 use DeviceViewBundle\Tests\App\Detector\HeaderDetector;
@@ -451,6 +452,61 @@ final class RememberListenerTest extends TestCase
         $response = self::respond(self::listener(), $request);
 
         self::assertSame([], $response->headers->getCookies());
+    }
+
+    public function testTheRouteDefaultFalseStopsTheWrite(): void
+    {
+        [$request, $context] = self::request('/no-remember?device_view=tablet');
+        $request->attributes->set('_device_view_remember', 'false');
+        $context->markSwitched(DeviceType::Tablet);
+        $checker = new CountingConsentChecker(new HeaderConsent());
+
+        $response = self::respond(self::routeListener($checker), $request, new Response()->setPublic());
+
+        self::assertSame([], self::cookies($response));
+        self::assertSame('public', $response->headers->get('Cache-Control'), 'nothing was stored');
+        self::assertSame(0, $checker->calls, 'the consent is not asked for a write the route stops');
+        self::assertFalse($context->routeRemember);
+    }
+
+    public function testTheRouteDefaultTrueLetsThePolicyDecide(): void
+    {
+        [$request, $context] = self::request('/remember?device_view=tablet');
+        $request->attributes->set('_device_view_remember', true);
+        $context->markSwitched(DeviceType::Tablet);
+
+        self::assertSame(['device_view' => 'tablet'], self::cookies(self::respond(self::routeListener(), $request)));
+    }
+
+    public function testTheRouteDefaultFalseStillExpiresAForgedValue(): void
+    {
+        [$request, $context] = self::request('/no-remember?device_view=tablet');
+        $request->attributes->set('_device_view_remember', false);
+        $context->markSwitched(DeviceType::Tablet);
+        $context->markForgedStoredValue();
+
+        $response = self::respond(self::routeListener(), $request);
+
+        $cookies = $response->headers->getCookies();
+        self::assertCount(1, $cookies);
+        self::assertTrue($cookies[0]->isCleared());
+    }
+
+    public function testWithoutTheReaderTheRouteDefaultIsNotRead(): void
+    {
+        [$request, $context] = self::request('/no-remember?device_view=tablet');
+        $request->attributes->set('_device_view_remember', false);
+        $context->markSwitched(DeviceType::Tablet);
+
+        self::assertSame(['device_view' => 'tablet'], self::cookies(self::respond(self::listener(), $request)));
+        self::assertNull($context->routeRemember);
+    }
+
+    private static function routeListener(?ConsentCheckerInterface $consentChecker = null): RememberListener
+    {
+        $names = new ViewNames();
+
+        return new RememberListener(self::resolver($names), new CookieStorage(), new RememberPolicy(), $names, consentChecker: $consentChecker, routeDefaults: new RouteDefaults());
     }
 
     /**

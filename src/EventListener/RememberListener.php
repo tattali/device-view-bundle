@@ -10,6 +10,7 @@ use DeviceViewBundle\Remember\RememberPolicy;
 use DeviceViewBundle\Remember\RememberTrigger;
 use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
+use DeviceViewBundle\Routing\RouteDefaults;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
 use DeviceViewBundle\View\ViewSource;
@@ -25,7 +26,8 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  * A view the request used and that came from the detector or the trusted header plans one with
  * the detected trigger. The remember policy decides whether the write happens and its lifetime,
  * from the consent: DeviceView::setConsent(), or else the consent checker, asked only when the
- * policy may write for the trigger. DeviceView::setRemember(false) stops any write. When nothing
+ * policy may write for the trigger. DeviceView::setRemember(false) and the remember route default
+ * false of the matched route stop any write; neither true bypasses the policy. When nothing
  * is written, a forged stored value is expired, when the storage can remove it. A response that
  * writes or expires the stored value becomes private when http_cache.private_when_remembering is
  * set.
@@ -38,6 +40,7 @@ final readonly class RememberListener
     /**
      * @param ViewStorageInterface|null    $storage        the remember storage, or null when remember.storage is none
      * @param ConsentCheckerInterface|null $consentChecker the checker of consent.provider, or null when it is not set
+     * @param RouteDefaults|null           $routeDefaults  the reader of the route defaults; without it, routes override nothing
      */
     public function __construct(
         private ViewResolverInterface $resolver,
@@ -47,6 +50,7 @@ final readonly class RememberListener
         private bool $privateWhenRemembering = true,
         private bool $tabletAsMobile = false,
         private ?ConsentCheckerInterface $consentChecker = null,
+        private ?RouteDefaults $routeDefaults = null,
     ) {
     }
 
@@ -86,6 +90,10 @@ final readonly class RememberListener
     {
         $trigger = $this->trigger($context);
         if (null === $trigger || false === $context->remember || !$this->policy->remembers($trigger)) {
+            return false;
+        }
+
+        if (null !== $this->routeDefaults && false === $context->routeRemember($this->routeDefaults, $request)) {
             return false;
         }
 
