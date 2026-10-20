@@ -20,6 +20,8 @@
          displayDetailsOnSkippedTests="true">
     <php>
         <ini name="error_reporting" value="-1"/>
+        <!-- each bundle configuration compiles its own container, which PHP keeps until the end of the run -->
+        <ini name="memory_limit" value="512M"/>
     </php>
 
     <testsuites>
