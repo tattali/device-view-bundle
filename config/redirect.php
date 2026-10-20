@@ -30,6 +30,7 @@ return static function (ContainerConfigurator $container): void {
                 new Reference('device_view.resolver'),
                 new AbstractArgument('redirect.methods'),
                 new AbstractArgument('redirect.cache_control'),
+                new Reference('device_view.switch_parameter'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 30])
     ;

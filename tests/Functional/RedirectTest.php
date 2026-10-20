@@ -497,6 +497,45 @@ final class RedirectTest extends TestCase
         self::assertPage('mobile remembered', $response);
     }
 
+    #[Group('REG-20')]
+    public function testAViewRememberedOnOneHostOnlyCausesNoLoopWhileTheSwitchIsDisabled(): void
+    {
+        $this->boot(['switch' => ['enabled' => false], 'redirect' => self::M + self::D]);
+
+        [$response, $url, $redirects] = $this->follow('https://m.example.com/view', ['m.example.com' => ['device_view' => 'desktop']]);
+
+        self::assertSame(1, $redirects);
+        self::assertSame('https://www.example.com/view?device_view=desktop', $url);
+        self::assertPage('mobile detector', $response);
+    }
+
+    #[Group('REG-21')]
+    public function testAViewRememberedOnOneHostOnlyCausesNoLoopWhileSwitchesAreNotRemembered(): void
+    {
+        $this->boot(['remember' => ['on_switch' => false], 'redirect' => self::M + self::D]);
+
+        [$response, $url, $redirects] = $this->follow('https://m.example.com/view', ['m.example.com' => ['device_view' => 'desktop']]);
+
+        self::assertSame(1, $redirects);
+        self::assertSame('https://www.example.com/view?device_view=desktop', $url);
+        self::assertPage('desktop switch', $response);
+    }
+
+    public function testAnUnrememberedSwitchToAViewOfTheCurrentHostIsNotRedirected(): void
+    {
+        $this->boot(['remember' => ['on_switch' => false], 'redirect' => self::M]);
+
+        self::assertPage('mobile switch', $this->handle(self::request('https://m.example.com/view?device_view=mobile')));
+        self::assertRedirect('https://m.example.com/view?device_view=mobile', 302, $this->handle(self::request('http://www.example.com/view?device_view=mobile')));
+    }
+
+    public function testAnUnrememberedSwitchToAViewWithoutAHostStillRedirects(): void
+    {
+        $this->boot(['remember' => ['on_switch' => false], 'redirect' => self::M]);
+
+        self::assertRedirect('/view', 302, $this->handle(self::request('https://m.example.com/view?device_view=desktop', 'iphone')));
+    }
+
     #[Group('REG-19')]
     public function testAViewNeverLeaksToTheNextRequest(): void
     {
@@ -529,6 +568,32 @@ final class RedirectTest extends TestCase
 
         self::assertRedirect('https://m.example.com/view?device_view=mobile', 302, $response);
         self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
+    /**
+     * Follows each Location from a GET of the URL with an iPhone, at most 5 times, sending each
+     * host only its own cookies, as a browser does with cookies without a domain.
+     *
+     * @param array<string, array<string, string>> $jars the cookies of each host
+     *
+     * @return array{Response, string, int} the last response, its URL and the number of redirects
+     */
+    private function follow(string $url, array $jars): array
+    {
+        $redirects = 0;
+        for ($i = 0;; ++$i) {
+            $host = (string) parse_url($url, \PHP_URL_HOST);
+            $response = $this->handle(self::request($url, 'iphone', cookies: $jars[$host] ?? []));
+            foreach ($response->headers->getCookies() as $cookie) {
+                $jars[$host][$cookie->getName()] = (string) $cookie->getValue();
+            }
+            $location = $response->headers->get('Location');
+            if (null === $location || 5 === $i) {
+                return [$response, $url, $redirects];
+            }
+            ++$redirects;
+            $url = str_contains($location, '://') ? $location : parse_url($url, \PHP_URL_SCHEME).'://'.$host.$location;
+        }
     }
 
     /**

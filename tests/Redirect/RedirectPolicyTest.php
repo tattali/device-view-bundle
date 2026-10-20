@@ -54,6 +54,23 @@ final class RedirectPolicyTest extends TestCase
         self::assertNull($policy->switchUrl(Request::create('https://m.example.com/view?device_view=mobile'), DeviceType::Mobile, SwitchTarget::Current));
     }
 
+    public function testAViewIsServedHereWhenItsRedirectGoesToTheCurrentHost(): void
+    {
+        $logger = new TestLogger();
+        $policy = new RedirectPolicy([
+            'mobile' => self::options('https://M.example.com.:443/'),
+            'tablet' => self::options('https://t.example.com', RedirectAction::None),
+            'desktop' => self::options('www.example.com'),
+        ], new ViewNames(), new SwitchUrlGenerator(), 'device_view', $logger);
+
+        self::assertTrue($policy->servesHere(Request::create('https://m.example.com/view'), DeviceType::Mobile));
+        self::assertFalse($policy->servesHere(Request::create('http://www.example.com/view'), DeviceType::Mobile), 'another host');
+        self::assertFalse($policy->servesHere(Request::create('https://t.example.com/'), DeviceType::Tablet), 'action none sends nothing there');
+        self::assertFalse($policy->servesHere(Request::create('https://www.example.com/'), DeviceType::Desktop), 'an invalid host serves nothing');
+        self::assertFalse(self::policy([])->servesHere(Request::create('https://m.example.com/'), DeviceType::Mobile), 'a view without a redirect');
+        self::assertSame([], $logger->records, 'asking logs nothing');
+    }
+
     public function testTheSwitchGoesWhereTheDeviceRedirectGoes(): void
     {
         $request = Request::create('http://www.example.com/blog/post?a=1&device_view=mobile');

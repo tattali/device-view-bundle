@@ -38,6 +38,7 @@ return static function (ContainerConfigurator $container): void {
                 new AbstractArgument('redirect.cache_control'),
                 new Reference('device_view.redirect_policy'),
                 new Reference('device_view.resolver'),
+                new Reference('device_view.remember_policy'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 31])
     ;

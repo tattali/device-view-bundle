@@ -7,6 +7,7 @@ namespace DeviceViewBundle\EventListener;
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Redirect\RedirectPolicy;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
+use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 
@@ -15,22 +16,24 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * switch (31).
  *
  * Nothing happens for a sub-request, a skipped request, a method that is not in
- * redirect.methods, or when no view has its redirect enabled: the view then stays unresolved
- * until something asks for it. Otherwise the listener resolves the view, and the redirect
- * policy decides whether the request goes to the host of that view. The redirect gets
- * redirect.cache_control.
+ * redirect.methods, a request that carries a view served on this host in the switch parameter,
+ * or when no view has its redirect enabled: the view then stays unresolved until something asks
+ * for it. Otherwise the listener resolves the view, and the redirect policy decides whether the
+ * request goes to the host of that view. The redirect gets redirect.cache_control.
  */
 final readonly class DeviceRedirectListener
 {
     /**
-     * @param list<string> $methods      the request methods the device redirects apply to, upper case
-     * @param string|null  $cacheControl the Cache-Control of the redirect, or null to leave it alone
+     * @param list<string>         $methods         the request methods the device redirects apply to, upper case
+     * @param string|null          $cacheControl    the Cache-Control of the redirect, or null to leave it alone
+     * @param SwitchParameter|null $switchParameter the switch parameter, which tells the view a redirect of the bundle carried here
      */
     public function __construct(
         private RedirectPolicy $policy,
         private ViewResolverInterface $resolver,
         private array $methods = ['GET', 'HEAD'],
         private ?string $cacheControl = 'no-store, private',
+        private ?SwitchParameter $switchParameter = null,
     ) {
     }
 
@@ -44,6 +47,14 @@ final readonly class DeviceRedirectListener
         $context = $request->attributes->get(DeviceViewContext::ATTRIBUTE);
         // a skipped request (the fragment path, skip.paths) is never redirected
         if (!$context instanceof DeviceViewContext || $context->skipped || !\in_array($request->getMethod(), $this->methods, true)) {
+            return;
+        }
+
+        // a request that carries, in the switch parameter, a view served on this host was sent here
+        // by a redirect of the bundle: it stays, even when the switch does not apply to it
+        // (switch.enabled false) and the view resolves to another host, which would send it back
+        $carried = $this->switchParameter?->carriedView($request);
+        if (null !== $carried && $this->policy->servesHere($request, $carried)) {
             return;
         }
 

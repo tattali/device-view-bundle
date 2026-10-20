@@ -14,7 +14,7 @@
     "mutators": {
         "@default": true
     },
-    // Measured 2026-10-20 on PHP 8.4.26: 767 mutants, 765 killed, 2 timed out (counted as detected), MSI 100%, covered MSI 100%
+    // Measured 2026-10-20 on PHP 8.4.26: 798 mutants, 796 killed, 2 timed out (counted as detected), MSI 100%, covered MSI 100%
     "minMsi": 100,
     "minCoveredMsi": 100
 }

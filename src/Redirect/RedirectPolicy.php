@@ -50,6 +50,20 @@ final readonly class RedirectPolicy
     }
 
     /**
+     * Whether the view is served on the current host: its redirect is enabled, its action is not
+     * none and its host is the one the request was sent to. It logs nothing.
+     */
+    public function servesHere(Request $request, DeviceType $view): bool
+    {
+        $redirect = $this->redirects[$view->value] ?? null;
+        if (null === $redirect || RedirectAction::None === $redirect['action']) {
+            return false;
+        }
+
+        return RedirectHost::parse($redirect['host'])?->isCurrentHost($request) ?? false;
+    }
+
+    /**
      * The Location and status of the device redirect of a request served with the view, or null
      * when the request stays here.
      */

@@ -916,6 +916,8 @@ One named test per bug of the old bundle. Each also passes on every line.
 | REG-17 | No cookie on a first visit | — | `GET /view`, `UA=iphone`, no cookie | 200 `"mobile detector"`, no `Set-Cookie` | active |
 | REG-18 | The desktop redirect works | `D` | `GET https://m.example.com/`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/?device_view=desktop` | active |
 | REG-19 | A view never leaks to the next request | `M`, `D` | one kernel: `GET https://m.example.com/view?device_view=desktop` `UA=iphone`, then `GET https://m.example.com/view` `UA=iphone` with no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`; second response: 200 `"mobile detector"`, no `Location` (a leaked desktop view would redirect to `www`) | active |
+| REG-20 | A view remembered on one host only causes no loop while the switch is disabled | `M`, `D`, `switch: { enabled: false }` | from `GET https://m.example.com/view` `UA=iphone`, with `Cookie: device_view=desktop` on `m.example.com` only; follow each `Location`, sending each host only its own cookies, at most 5 times | ends with 200 `"mobile detector"` on `https://www.example.com/view?device_view=desktop` after 1 redirect | active |
+| REG-21 | A view remembered on one host only causes no loop while switches are not remembered | `M`, `D`, `remember: { on_switch: false }` | as REG-20 | ends with 200 `"desktop switch"` on `https://www.example.com/view?device_view=desktop` after 1 redirect, no `Set-Cookie` | active |
 
 ## 29. Test helpers (TST), design.md section 10
 
@@ -1037,4 +1039,11 @@ the area; if the owner disagrees, the rows change before they become active.
   logs the RED-27 error on each of them (services keep no state).
 - With `cache_control: null`, a redirect with status 301 has no `Cache-Control` at all: Symfony's
   `RedirectResponse` removes it on a 301 that sets none.
+- A request that carries, in the switch parameter, a view served on the current host is never
+  device-redirected, even when the switch does not apply to it (`switch.enabled: false`): a
+  redirect of the bundle sent it here, and sending it back would loop (REG-20). A switch that is
+  not remembered (`remember.on_switch: false`) and arrives on the host its view is served on gets
+  no redirect: the page is served with the switched view and keeps the parameter in its URL,
+  because the redirect to the page without it would forget the view (REG-21). Both loops need a
+  view remembered on one host only: a cookie without a domain, or session storage.
 - The exception and log messages of the rows above.

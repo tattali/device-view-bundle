@@ -14,6 +14,7 @@ use DeviceViewBundle\Tests\App\Kernel;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
 use DeviceViewBundle\View\ViewSource;
+use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -96,6 +97,36 @@ final class DeviceRedirectListenerTest extends TestCase
         new DeviceRedirectListener(self::policy(), self::resolver())->onKernelRequest($event);
 
         self::assertNull($event->getResponse());
+    }
+
+    public function testARequestCarryingAViewServedHereStays(): void
+    {
+        // the resolver gives mobile: only the carried desktop view keeps the request on www
+        $policy = new RedirectPolicy(
+            [
+                'mobile' => ['host' => 'https://m.example.com', 'action' => RedirectAction::Redirect, 'status' => 302, 'keep_query' => true],
+                'desktop' => ['host' => 'https://www.example.com', 'action' => RedirectAction::Redirect, 'status' => 302, 'keep_query' => true],
+            ],
+            new ViewNames(),
+            new SwitchUrlGenerator(),
+        );
+        $parameter = new SwitchParameter(new ViewNames(), enabled: false);
+
+        [$here, $context] = self::request('https://www.example.com/view?device_view=desktop');
+        $event = self::event($here);
+        new DeviceRedirectListener($policy, self::resolver(), switchParameter: $parameter)->onKernelRequest($event);
+        self::assertNull($event->getResponse());
+        self::assertNull($context->resolved, 'the view stays lazy');
+
+        [$elsewhere] = self::request('https://www.example.com/view?device_view=mobile');
+        $event = self::event($elsewhere);
+        new DeviceRedirectListener($policy, self::resolver(), switchParameter: $parameter)->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'a carried view served on another host does not keep the request here');
+
+        [$withoutParameter] = self::request('https://www.example.com/view?device_view=desktop');
+        $event = self::event($withoutParameter);
+        new DeviceRedirectListener($policy, self::resolver())->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'without the switch parameter, nothing is carried');
     }
 
     public function testWithoutRedirectsTheViewIsNotResolved(): void
