@@ -1,0 +1,5 @@
+# source: the Axeptio web SDK (served unversioned by the vendor) writes axeptio_cookies as URL-encoded JSON: bookkeeping keys start with $$, $$completed is true once the visitor finished the banner, every other key is a vendor set to true or false. Read from the vendor's own readers and tests: github.com/axeptio/axeptio-gtm-public-variable 1.1.1 (f0342f91) template.tpl:166 readChoices() (JSON.parse of the raw value, then of decodeUriComponent of it) and :211 (the $$completed gate); github.com/axeptio/axeptio-gtm-public-template 2.8.0 (2199617c) e2e/live-container.spec.mjs:545 ("The SDK writes it URL-encoded today") and e2e/hermetic.spec.mjs:273 (encodeURIComponent(JSON.stringify(...))). The value below is encodeURIComponent(JSON.stringify(json)) unless said otherwise
+# date: 2026-10-20
+# garbage: not written by Axeptio
+# hasConsent: null
+Cookie: axeptio_cookies=%%%
