@@ -57,6 +57,7 @@ final class DeviceViewBundle extends AbstractBundle
         $container->import('../config/switch.php');
         $container->import('../config/remember.php');
         $container->import('../config/redirect.php');
+        $container->import('../config/route_defaults.php');
         // the built-in consent readers, one file each: see builtInConsentReader()
         $container->import('../config/consent/*.php');
 
@@ -86,7 +87,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null, mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null, mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, route_defaults: array{redirect: non-empty-string, remember: non-empty-string}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -134,6 +135,10 @@ final class DeviceViewBundle extends AbstractBundle
         $builder->getDefinition('device_view.redirect_policy')
             ->replaceArgument(0, self::redirects($builder, $config['redirect']))
             ->replaceArgument(3, 'cookie' === $remember['storage'] && null === $cookie['domain'] ? $cookie['name'] : null)
+        ;
+        $builder->getDefinition('device_view.route_defaults')
+            ->replaceArgument(0, $config['route_defaults']['redirect'])
+            ->replaceArgument(1, $config['route_defaults']['remember'])
         ;
         $builder->getDefinition('device_view.device_redirect_listener')
             ->replaceArgument(2, $config['redirect']['methods'])

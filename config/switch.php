@@ -13,7 +13,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 // The switch query parameter: its reader (also a step of the resolver, see resolver.php), the
 // URLs of the switch, and the listener that redirects after a switch, to the host of the view
-// when it is served on another host (see redirect.php).
+// when it is served on another host (see redirect.php), as the route defaults of the matched
+// route allow (see route_defaults.php).
 // DeviceViewBundle::loadExtension() sets the arguments that come from the configuration.
 return static function (ContainerConfigurator $container): void {
     $container->services()
@@ -39,6 +40,7 @@ return static function (ContainerConfigurator $container): void {
                 new Reference('device_view.redirect_policy'),
                 new Reference('device_view.resolver'),
                 new Reference('device_view.remember_policy'),
+                new Reference('device_view.route_defaults'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 31])
     ;

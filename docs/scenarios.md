@@ -393,7 +393,7 @@ created before.
 | SES-05 | Custom session key | `remember: { storage: session, session: { key: dv } }` | `GET /view?device_view=mobile` | the session holds `dv = mobile` and no `_device_view` | active |
 | SES-06 | Detected view written to the session | `remember: { storage: session, detected_view: true }` | `GET /view`, `UA=iphone` | 200; the session holds `_device_view = mobile` | active |
 | SES-07 | Detected view with consent denied is not written | `remember: { storage: session, detected_view: true }`, `TAC` | `GET /view`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 200; the session is not started | active |
-| SES-08 | The route default stops a session write | `remember: { storage: session }` | `GET /no-remember?device_view=mobile` | 302, `Location: /no-remember`; the session is not started | planned |
+| SES-08 | The route default stops a session write | `remember: { storage: session }` | `GET /no-remember?device_view=mobile` | 302, `Location: /no-remember`; the session is not started | active |
 
 ## 9. Storage none and custom storage (STO), design.md sections 4 and 10
 
@@ -602,16 +602,16 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| RTE-01 | `_device_view_redirect: none` | `M` | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| RTE-02 | `_device_view_redirect: redirect_without_path` | `M` | `GET http://www.example.com/without-path?a=1`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile` | planned |
-| RTE-03 | `_device_view_redirect: redirect` over `action: none` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', action: none } }` | `GET http://www.example.com/always-redirect`, `UA=iphone` | 302, `Location: https://m.example.com/always-redirect?device_view=mobile` | planned |
-| RTE-04 | Invalid redirect default is ignored | `M` | `GET http://www.example.com/bad-default`, `UA=iphone` | 302, `Location: https://m.example.com/bad-default?device_view=mobile`; debug log `Ignored the invalid route default _device_view_redirect "sometimes".` | planned |
-| RTE-05 | `_device_view_redirect: none` keeps the switch | `M` | `GET http://www.example.com/no-redirect?device_view=desktop`, `UA=iphone` | 302, `Location: /no-redirect`, `Set-Cookie: SC(desktop)` | planned |
-| RTE-06 | `_device_view_remember: false` stops a switch write | — | `GET /no-remember?device_view=mobile` | 302, `Location: /no-remember`, no `Set-Cookie` | planned |
-| RTE-07 | `_device_view_remember: false` stops a detected write | `remember: { detected_view: true }` | `GET /no-remember`, `UA=iphone` | 200 `"mobile detector"`, no `Set-Cookie` | planned |
-| RTE-08 | `_device_view_remember: 'false'` as a string | — | `GET /no-remember-xml?device_view=mobile` | 302, no `Set-Cookie` | planned |
-| RTE-09 | `_device_view_remember: true` does not bypass consent | `TAC`, `remember: { detected_view: true }` | `GET /remember`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 200 `"mobile detector"`, no `Set-Cookie` | planned |
-| RTE-10 | Custom route default keys | `M`, `route_defaults: { redirect: _dv_redirect, remember: _dv_remember }` | `GET http://www.example.com/custom-keys` `UA=iphone`; then `GET http://www.example.com/custom-keys?device_view=desktop` `UA=iphone`; then `GET http://www.example.com/no-redirect` `UA=iphone` | 200 `"mobile detector"`, no `Location` (`_dv_redirect: none` is read); then 302, `Location: /custom-keys`, no `Set-Cookie` (`_dv_remember: false` is read); then 302, `Location: https://m.example.com/no-redirect?device_view=mobile` (the default key is no longer read) | planned |
+| RTE-01 | `_device_view_redirect: none` | `M` | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | active |
+| RTE-02 | `_device_view_redirect: redirect_without_path` | `M` | `GET http://www.example.com/without-path?a=1`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile` | active |
+| RTE-03 | `_device_view_redirect: redirect` over `action: none` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', action: none } }` | `GET http://www.example.com/always-redirect`, `UA=iphone` | 302, `Location: https://m.example.com/always-redirect?device_view=mobile` | active |
+| RTE-04 | Invalid redirect default is ignored | `M` | `GET http://www.example.com/bad-default`, `UA=iphone` | 302, `Location: https://m.example.com/bad-default?device_view=mobile`; debug log `Ignored the invalid route default _device_view_redirect "sometimes".` | active |
+| RTE-05 | `_device_view_redirect: none` keeps the switch | `M` | `GET http://www.example.com/no-redirect?device_view=desktop`, `UA=iphone` | 302, `Location: /no-redirect`, `Set-Cookie: SC(desktop)` | active |
+| RTE-06 | `_device_view_remember: false` stops a switch write | — | `GET /no-remember?device_view=mobile` | 302, `Location: /no-remember`, no `Set-Cookie` | active |
+| RTE-07 | `_device_view_remember: false` stops a detected write | `remember: { detected_view: true }` | `GET /no-remember`, `UA=iphone` | 200 `"mobile detector"`, no `Set-Cookie` | active |
+| RTE-08 | `_device_view_remember: 'false'` as a string | — | `GET /no-remember-xml?device_view=mobile` | 302, no `Set-Cookie` | active |
+| RTE-09 | `_device_view_remember: true` does not bypass consent | `TAC`, `remember: { detected_view: true }` | `GET /remember`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 200 `"mobile detector"`, no `Set-Cookie` | active |
+| RTE-10 | Custom route default keys | `M`, `route_defaults: { redirect: _dv_redirect, remember: _dv_remember }` | `GET http://www.example.com/custom-keys` `UA=iphone`; then `GET http://www.example.com/custom-keys?device_view=desktop` `UA=iphone`; then `GET http://www.example.com/no-redirect` `UA=iphone` | 200 `"mobile detector"`, no `Location` (`_dv_redirect: none` is read); then 302, `Location: /custom-keys`, no `Set-Cookie` (`_dv_remember: false` is read); then 302, `Location: https://m.example.com/no-redirect?device_view=mobile` (the default key is no longer read) | active |
 
 ## 13. Vary (VARY), design.md section 6
 
@@ -856,6 +856,9 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-56 | `remember.storage` service missing | `remember: { storage: app.nope }` | container build | message contains `The service "app.nope" set in device_view.remember.storage does not exist.` | active |
 | CFG-57 | Session storage needs the framework session | `remember: { storage: session }`, `framework.session` not enabled | container build | message contains `device_view.remember.storage "session" needs the framework session: enable framework.session, or set device_view.remember.storage to another storage.` | active |
 | CFG-58 | A service id cannot be the alias it sets | `remember: { storage: device_view.storage }` | container build | message contains `device_view.remember.storage cannot be "device_view.storage", the alias it sets: set it to the id of your own service.` | active |
+| CFG-59 | Route default keys are non-empty strings | `route_defaults: { redirect: '' }`, then `route_defaults: { remember: '' }`, then `route_defaults: { redirect: false }` | container build | message contains `The path "device_view.route_defaults.redirect" cannot contain an empty value` (`remember` for the second), then `Invalid type for path "device_view.route_defaults.redirect"` | active |
+| CFG-60 | Route default keys differ | `route_defaults: { redirect: _dv, remember: _dv }` | container build | message contains `device_view.route_defaults.redirect and device_view.route_defaults.remember must be different route defaults, both are "_dv".` | active |
+| CFG-61 | A route default key cannot be the context attribute | `route_defaults: { redirect: _device_view }` | container build | message contains `device_view.route_defaults.redirect cannot be "_device_view", the request attribute that holds the device view context.` | active |
 
 ## 25. Configuration reference (REF), design.md section 12
 
@@ -911,7 +914,7 @@ One named test per bug of the old bundle. Each also passes on every line.
 | REG-12 | POST is never redirected | `M` | `POST http://www.example.com/form?device_view=desktop`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
 | REG-13 | `/_fragment` gets no cookie and no redirect | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
 | REG-14 | Redirects are not cacheable | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
-| REG-15 | Route override without loading the route collection | `M`, the router's `getRouteCollection()` throws | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | planned |
+| REG-15 | Route override without loading the route collection | `M`, the router's `getRouteCollection()` throws | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | active |
 | REG-16 | Invalid config fails at build, not at request time | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | `InvalidConfigurationException` (CFG-34) before any request | active |
 | REG-17 | No cookie on a first visit | — | `GET /view`, `UA=iphone`, no cookie | 200 `"mobile detector"`, no `Set-Cookie` | active |
 | REG-18 | The desktop redirect works | `D` | `GET https://m.example.com/`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/?device_view=desktop` | active |
@@ -972,8 +975,28 @@ the area; if the owner disagrees, the rows change before they become active.
   `device_view` deletion would not remove the browser's bracketed cookie, and would make every
   later response private under `private_when_remembering`. Like any invalid input, it is logged
   at debug level with `Ignored an invalid device view from the remember storage.` (VAL-09, HC-04).
-- Route default values: booleans or the strings `true`, `false`, `1`, `0`; other values are
-  ignored with a debug log (RTE-04, RTE-08).
+- Route default values: `_device_view_redirect` is `redirect`, `redirect_without_path` or
+  `none`, exactly; `_device_view_remember` is a boolean or the string `true`, `false`, `1` or `0`,
+  exactly. Other values are ignored with a debug log, `Ignored the invalid route default <key>
+  "<value>".` for a string and `Ignored the invalid route default <key> of type <type>.`
+  otherwise (an integer `0` included); `null` counts as no default (RTE-04, RTE-08).
+- The route defaults are read from the request attributes, where the RouterListener copies the
+  defaults of the matched route, so the route collection is never loaded (REG-15), and a query
+  parameter can never set them. Each is read at most once per request, after routing, so an
+  invalid value is logged once.
+- `_device_view_redirect` replaces `redirect.<view>.action` on its route, and keeps the view's
+  `host`, `status` and `keep_query`; it never enables a disabled redirect (RTE-03). It applies to
+  a switch to a view served on another host too, since that switch goes where the device
+  redirect would go: on a `none` route the switch stays on the current host, on a
+  `redirect_without_path` route it goes to the home page of that host. A `none` route is never
+  device-redirected, and its view stays unresolved until something asks for it.
+- `_device_view_remember: false` stops every write, like `DeviceView::setRemember(false)`, but a
+  forged stored value is still expired; `true` lets the remember policy and the consent decide,
+  so it never writes what the policy would not (RTE-09). A switch that the route default keeps
+  from being remembered, arriving on the host its view is served on, gets no redirect, as with
+  `remember.on_switch: false` (REG-21).
+- `route_defaults.redirect` and `route_defaults.remember` must be two different keys, and neither
+  can be `_device_view`, the request attribute of the context (CFG-60, CFG-61).
 - `Vary` keeps the response's values first, then adds the consulted inputs in the order they were
   consulted, skipping names already present (compared without case) (VARY-06, VARY-07).
 - Cancelling a switch redirect keeps the switched view and its remember (EVT-RED-05).

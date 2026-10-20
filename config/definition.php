@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\ViewSwitch\SwitchTarget;
@@ -193,6 +194,41 @@ return static function (DefinitionConfigurator $definition): void {
                         ->info('Keep the query parameters of the page in the redirect.')
                         ->defaultTrue()
                     ->end()
+                ->end()
+            ->end()
+        ;
+    }
+
+    $routeDefaultsNode = $definition->rootNode()
+        ->children()
+            ->arrayNode('route_defaults')
+                ->info('The route defaults that override, on one route, the redirect and the remember of the view.')
+                ->addDefaultsIfNotSet()
+                ->validate()
+                    ->always(static function (array $keys): array {
+                        /** @var array{redirect: string, remember: string} $keys */
+                        if ($keys['redirect'] === $keys['remember']) {
+                            throw new InvalidArgumentException(sprintf('device_view.route_defaults.redirect and device_view.route_defaults.remember must be different route defaults, both are "%s".', $keys['redirect']));
+                        }
+
+                        return $keys;
+                    })
+                ->end()
+                ->children()
+    ;
+    $routeDefaults = [
+        'redirect' => ['_device_view_redirect', 'The route default that sets the redirect of the view on its route: redirect, redirect_without_path or none, which replaces redirect.<view>.action. It never enables a redirect.'],
+        'remember' => ['_device_view_remember', 'The route default that stops remembering the view on its route when false (a boolean, or the string false or 0). True lets the remember policy and the consent decide.'],
+    ];
+    foreach ($routeDefaults as $key => [$default, $info]) {
+        $routeDefaultsNode
+            ->stringNode($key)
+                ->info($info)
+                ->defaultValue($default)
+                ->cannotBeEmpty()
+                ->validate()
+                    ->ifTrue(static fn (string $name): bool => DeviceViewContext::ATTRIBUTE === $name)
+                    ->thenInvalid(sprintf('device_view.route_defaults.%s cannot be "%s", the request attribute that holds the device view context.', $key, DeviceViewContext::ATTRIBUTE))
                 ->end()
             ->end()
         ;

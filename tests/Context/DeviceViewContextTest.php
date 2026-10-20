@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Context;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Resolver\ResolvedView;
+use DeviceViewBundle\Routing\RouteDefaults;
 use DeviceViewBundle\Tests\App\Resolver\RecordingResolver;
 use DeviceViewBundle\Tests\App\TestLogger;
 use DeviceViewBundle\View\DeviceType;
@@ -55,6 +57,47 @@ final class DeviceViewContextTest extends TestCase
         self::assertSame(DeviceType::Tablet, $context->readSwitch($parameter, Request::create('/')));
         self::assertSame(DeviceType::Tablet, $context->switchView);
         self::assertFalse($context->switched, 'reading the parameter does not apply the switch');
+    }
+
+    public function testTheRouteDefaultsAreReadOnce(): void
+    {
+        $context = new DeviceViewContext();
+        $logger = new TestLogger();
+        $defaults = new RouteDefaults(logger: $logger);
+        $request = new Request();
+        $request->attributes->add(['_device_view_redirect' => 'sometimes', '_device_view_remember' => 'maybe']);
+        $later = new Request();
+        $later->attributes->add(['_device_view_redirect' => 'none', '_device_view_remember' => false]);
+
+        self::assertNull($context->routeRedirect($defaults, $request));
+        self::assertNull($context->routeRedirect($defaults, $later));
+        self::assertNull($context->routeRemember($defaults, $request));
+        self::assertNull($context->routeRemember($defaults, $later));
+        self::assertCount(2, $logger->records, 'an invalid route default is logged once per request');
+    }
+
+    public function testValidRouteDefaultsAreKept(): void
+    {
+        $context = new DeviceViewContext();
+        $defaults = new RouteDefaults();
+        $request = new Request();
+        $request->attributes->add(['_device_view_redirect' => 'none', '_device_view_remember' => false]);
+
+        self::assertSame(RedirectAction::None, $context->routeRedirect($defaults, $request));
+        self::assertSame(RedirectAction::None, $context->routeRedirect($defaults, new Request()));
+        self::assertFalse($context->routeRemember($defaults, $request));
+        self::assertFalse($context->routeRemember($defaults, new Request()));
+    }
+
+    public function testEachRouteDefaultIsReadOnItsOwn(): void
+    {
+        $context = new DeviceViewContext();
+        $defaults = new RouteDefaults();
+        $request = new Request();
+        $request->attributes->add(['_device_view_redirect' => 'redirect', '_device_view_remember' => true]);
+
+        self::assertTrue($context->routeRemember($defaults, $request));
+        self::assertSame(RedirectAction::Redirect, $context->routeRedirect($defaults, $request));
     }
 
     public function testMarkingTheSwitchRecordsItAndPlansItsView(): void

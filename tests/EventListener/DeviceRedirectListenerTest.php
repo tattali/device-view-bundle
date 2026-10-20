@@ -10,6 +10,7 @@ use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Redirect\RedirectPolicy;
 use DeviceViewBundle\Resolver\ResolvedView;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
+use DeviceViewBundle\Routing\RouteDefaults;
 use DeviceViewBundle\Tests\App\Kernel;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
@@ -171,6 +172,74 @@ final class DeviceRedirectListenerTest extends TestCase
         new DeviceRedirectListener(self::policy(), self::resolver())->onKernelRequest($event);
 
         self::assertNull($event->getResponse());
+    }
+
+    public function testANoneRouteIsNeverRedirectedAndLeavesTheViewLazy(): void
+    {
+        [$request, $context] = self::request('http://www.example.com/no-redirect');
+        $request->attributes->set('_device_view_redirect', 'none');
+        $event = self::event($request);
+
+        new DeviceRedirectListener(self::policy(), self::resolver(), routeDefaults: new RouteDefaults())->onKernelRequest($event);
+
+        self::assertNull($event->getResponse());
+        self::assertNull($context->resolved, 'the view stays lazy');
+        self::assertSame(RedirectAction::None, $context->routeRedirect);
+    }
+
+    public function testWithoutTheReaderRoutesOverrideNothing(): void
+    {
+        [$request] = self::request('http://www.example.com/no-redirect');
+        $request->attributes->set('_device_view_redirect', 'none');
+        $event = self::event($request);
+
+        new DeviceRedirectListener(self::policy(), self::resolver())->onKernelRequest($event);
+
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse());
+    }
+
+    public function testTheRouteActionReplacesTheConfiguredOne(): void
+    {
+        $policy = new RedirectPolicy(
+            ['mobile' => ['host' => 'https://m.example.com', 'action' => RedirectAction::None, 'status' => 302, 'keep_query' => true]],
+            new ViewNames(),
+            new SwitchUrlGenerator(),
+        );
+        [$request] = self::request('http://www.example.com/blog/post?a=1');
+        $request->attributes->set('_device_view_redirect', 'redirect_without_path');
+        $event = self::event($request);
+
+        new DeviceRedirectListener($policy, self::resolver(), routeDefaults: new RouteDefaults())->onKernelRequest($event);
+
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('https://m.example.com/?device_view=mobile', $response->getTargetUrl());
+    }
+
+    public function testTheRouteActionDecidesWhetherACarriedViewIsServedHere(): void
+    {
+        // the desktop redirect has action none: only the route makes www the desktop host
+        $policy = new RedirectPolicy(
+            [
+                'mobile' => ['host' => 'https://m.example.com', 'action' => RedirectAction::Redirect, 'status' => 302, 'keep_query' => true],
+                'desktop' => ['host' => 'https://www.example.com', 'action' => RedirectAction::None, 'status' => 302, 'keep_query' => true],
+            ],
+            new ViewNames(),
+            new SwitchUrlGenerator(),
+        );
+        $parameter = new SwitchParameter(new ViewNames(), enabled: false);
+
+        [$request, $context] = self::request('https://www.example.com/always-redirect?device_view=desktop');
+        $request->attributes->set('_device_view_redirect', 'redirect');
+        $event = self::event($request);
+        new DeviceRedirectListener($policy, self::resolver(), switchParameter: $parameter, routeDefaults: new RouteDefaults())->onKernelRequest($event);
+        self::assertNull($event->getResponse());
+        self::assertNull($context->resolved);
+
+        [$withoutRoute] = self::request('https://www.example.com/view?device_view=desktop');
+        $event = self::event($withoutRoute);
+        new DeviceRedirectListener($policy, self::resolver(), switchParameter: $parameter, routeDefaults: new RouteDefaults())->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse());
     }
 
     /**

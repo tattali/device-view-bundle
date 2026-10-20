@@ -62,6 +62,7 @@ return static function (ContainerConfigurator $container): void {
                 new AbstractArgument('tablet_as_mobile'),
                 // set only when consent.provider is
                 new Reference('device_view.consent_checker', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+                new Reference('device_view.route_defaults'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::RESPONSE, 'method' => 'onKernelResponse', 'priority' => 0])
     ;
