@@ -89,10 +89,19 @@ final class SessionStorageTest extends TestCase
         $request = self::requestWithPreviousSession(['_device_view' => 'phone', 'other' => 'kept']);
         $response = new Response();
 
-        new SessionStorage()->clear($request, $response);
+        self::assertTrue(new SessionStorage()->clear($request, $response));
 
         self::assertSame(['other' => 'kept'], $request->getSession()->all());
         self::assertSame([], $response->headers->getCookies());
+    }
+
+    public function testClearRemovesAValueOfAnyType(): void
+    {
+        $request = self::requestWithPreviousSession(['_device_view' => ['a' => 'mobile'], 'other' => 'kept']);
+
+        self::assertTrue(new SessionStorage()->clear($request, new Response()));
+
+        self::assertSame(['other' => 'kept'], $request->getSession()->all());
     }
 
     public function testClearNeverStartsASession(): void
@@ -101,7 +110,7 @@ final class SessionStorageTest extends TestCase
         $request = Request::create('/view');
         $request->setSession($session);
 
-        new SessionStorage()->clear($request, new Response());
+        self::assertFalse(new SessionStorage()->clear($request, new Response()));
 
         self::assertFalse($session->isStarted());
     }
@@ -110,7 +119,7 @@ final class SessionStorageTest extends TestCase
     {
         $request = Request::create('/view');
 
-        new SessionStorage()->clear($request, new Response());
+        self::assertFalse(new SessionStorage()->clear($request, new Response()));
 
         self::assertFalse($request->hasSession());
     }

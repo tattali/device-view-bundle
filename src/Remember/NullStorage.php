@@ -25,8 +25,9 @@ final readonly class NullStorage implements ViewStorageInterface
     }
 
     #[\Override]
-    public function clear(Request $request, Response $response): void
+    public function clear(Request $request, Response $response): bool
     {
+        return false;
     }
 
     #[\Override]

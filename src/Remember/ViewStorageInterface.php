@@ -34,9 +34,12 @@ interface ViewStorageInterface
     public function write(Request $request, Response $response, string $name, int $lifetime): void;
 
     /**
-     * Removes the stored value on the response.
+     * Removes the stored value, which is not a configured view name, on the response.
+     *
+     * @return bool true when the value was removed; false when nothing was done, because this
+     *              storage cannot remove what the request holds
      */
-    public function clear(Request $request, Response $response): void;
+    public function clear(Request $request, Response $response): bool;
 
     /**
      * The request headers read() reads, which the response lists in Vary.

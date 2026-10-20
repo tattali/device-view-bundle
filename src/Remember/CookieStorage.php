@@ -45,10 +45,20 @@ final readonly class CookieStorage implements ViewStorageInterface
         $response->headers->setCookie(new Cookie($this->name, $name, $expire, $this->path, $this->domain, $this->isSecure($request), $this->httpOnly, $this->raw, $this->sameSite));
     }
 
+    /**
+     * A cookie PHP decoded into an array (device_view[a]) is left alone: a device_view deletion
+     * would not remove the browser's bracketed cookie.
+     */
     #[\Override]
-    public function clear(Request $request, Response $response): void
+    public function clear(Request $request, Response $response): bool
     {
+        if (\is_array($request->cookies->all()[$this->name] ?? null)) {
+            return false;
+        }
+
         $response->headers->clearCookie($this->name, $this->path, $this->domain, $this->isSecure($request), $this->httpOnly, $this->sameSite);
+
+        return true;
     }
 
     #[\Override]

@@ -240,6 +240,20 @@ final class RememberListenerTest extends TestCase
         self::assertTrue($response->headers->getCookies()[0]->isCleared());
     }
 
+    public function testAValueTheStorageCannotRemoveLeavesTheResponseAlone(): void
+    {
+        $request = Request::create('/view', cookies: ['device_view' => ['a' => 'mobile']]);
+        $context = new DeviceViewContext();
+        $request->attributes->set(DeviceViewContext::ATTRIBUTE, $context);
+        $context->markForgedStoredValue();
+        $response = new Response()->setPublic();
+
+        self::respond(self::listener(), $request, $response);
+
+        self::assertSame([], $response->headers->getCookies());
+        self::assertSame('public', $response->headers->get('Cache-Control'), 'nothing was removed');
+    }
+
     public function testAWriteReplacesAForgedValue(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');

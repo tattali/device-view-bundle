@@ -9,29 +9,32 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * A custom remember storage for the tests (scenario STO-04): it keeps one view name in memory,
+ * A custom remember storage for the tests (scenario STO-04): it keeps one value in memory,
  * for every visitor, so the requests of one kernel share it.
  */
 final class ArrayStorage implements ViewStorageInterface
 {
-    private ?string $name = null;
+    /** the stored value; a test may set any value */
+    public mixed $value = null;
 
     #[\Override]
-    public function read(Request $request): ?string
+    public function read(Request $request): mixed
     {
-        return $this->name;
+        return $this->value;
     }
 
     #[\Override]
     public function write(Request $request, Response $response, string $name, int $lifetime): void
     {
-        $this->name = $name;
+        $this->value = $name;
     }
 
     #[\Override]
-    public function clear(Request $request, Response $response): void
+    public function clear(Request $request, Response $response): bool
     {
-        $this->name = null;
+        $this->value = null;
+
+        return true;
     }
 
     #[\Override]

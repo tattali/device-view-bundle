@@ -7,6 +7,7 @@ namespace DeviceViewBundle\Tests\Functional;
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Remember\SessionStorage;
 use DeviceViewBundle\Tests\App\TestLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
@@ -156,6 +157,32 @@ final class SessionTest extends TestCase
         self::assertSame('desktop detector', $response->getContent());
         self::assertSame(['cart' => 3], $this->sessionOf($response, $cookies[self::SESSION_NAME]));
         self::assertSame([], self::cookieNames($response), 'the session keeps its cookie');
+        $logger = $this->service('logger');
+        \assert($logger instanceof TestLogger);
+        self::assertSame(['Ignored an invalid device view from the remember storage.'], $logger->messages(LogLevel::DEBUG));
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function nonStringSessionValues(): iterable
+    {
+        yield 'integer' => [3];
+        yield 'array' => [['a' => 'mobile']];
+    }
+
+    #[Group('VAL-14')]
+    #[DataProvider('nonStringSessionValues')]
+    public function testANonStringSessionValueIsRemoved(mixed $value): void
+    {
+        $this->bootWithSession(services: ['logger' => TestLogger::class]);
+        $cookies = $this->previousSession(['_device_view' => $value, 'cart' => 3]);
+
+        $response = $this->handle(self::request('/view', cookies: $cookies));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('desktop detector', $response->getContent());
+        self::assertSame(['cart' => 3], $this->sessionOf($response, $cookies[self::SESSION_NAME]));
         $logger = $this->service('logger');
         \assert($logger instanceof TestLogger);
         self::assertSame(['Ignored an invalid device view from the remember storage.'], $logger->messages(LogLevel::DEBUG));

@@ -44,12 +44,19 @@ final readonly class SessionStorage implements ViewStorageInterface
         $request->getSession()->set($this->key, $name);
     }
 
+    /**
+     * Removes the key whatever its value, since the session holds any PHP value.
+     */
     #[\Override]
-    public function clear(Request $request, Response $response): void
+    public function clear(Request $request, Response $response): bool
     {
-        if ($request->hasPreviousSession()) {
-            $request->getSession()->remove($this->key);
+        if (!$request->hasPreviousSession()) {
+            return false;
         }
+
+        $request->getSession()->remove($this->key);
+
+        return true;
     }
 
     /**

@@ -24,8 +24,8 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  * A view the request used and that came from the detector or the trusted header plans one with
  * the detected trigger. The remember policy decides whether the write happens and its lifetime;
  * DeviceView::setRemember(false) stops it. When nothing is written, a forged stored value is
- * expired. A response that writes or expires the stored value becomes private when
- * http_cache.private_when_remembering is set.
+ * expired, when the storage can remove it. A response that writes or expires the stored value
+ * becomes private when http_cache.private_when_remembering is set.
  *
  * Skipped requests never write nor expire, and neither does any request without a storage
  * (remember.storage: none). Once this listener ran, DeviceView ignores changes.
@@ -66,8 +66,7 @@ final readonly class RememberListener
         $response = $event->getResponse();
         $stored = $this->remember($request, $response, $context, $storage);
         if (!$stored && $context->forgedStoredValue) {
-            $storage->clear($request, $response);
-            $stored = true;
+            $stored = $storage->clear($request, $response);
         }
 
         if ($stored && $this->privateWhenRemembering) {

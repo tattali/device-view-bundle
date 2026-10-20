@@ -184,6 +184,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | active |
 | VAL-12 | Forged session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = phone` | 200 `"desktop detector"`; the session no longer has `_device_view` | active |
 | VAL-13 | Invalid trusted header value is ignored | `TH` | `GET /view`, `X-Device-View: phone`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, X-Device-View, User-Agent]`; debug log `Ignored an invalid device view from the trusted header.` | planned |
+| VAL-14 | Non-string session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = 3` (an integer) or `['a' => 'mobile']` (an array) | 200 `"desktop detector"`; the session no longer has `_device_view`; debug log `Ignored an invalid device view from the remember storage.` | active |
 
 ## 2. Resolution order and sources (RES), design.md sections 2 and 5
 
@@ -947,6 +948,8 @@ the area; if the owner disagrees, the rows change before they become active.
 - Removing a forged cookie counts as writing the remember cookie for `private_when_remembering`
   (HC-04).
 - Session storage adds `Cookie` to `Vary`, because the session id is a cookie (SES-02, SES-03).
+- Any session value under the session key that is not a configured view name is removed, whatever
+  its type: unlike a bracketed cookie, the session can always remove its key (VAL-12, VAL-14).
 - `remember.storage: session` fails the container build when `framework.session` is not
   enabled, instead of failing on the first switch at runtime (CFG-57).
 - A service id equal to the alias the option sets (`device_view.detector` in `detector.id`,

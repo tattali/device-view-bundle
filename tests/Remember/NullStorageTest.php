@@ -26,7 +26,7 @@ final class NullStorageTest extends TestCase
         $response = new Response();
 
         $storage->write($request, $response, 'mobile', 3600);
-        $storage->clear($request, $response);
+        self::assertFalse($storage->clear($request, $response));
 
         self::assertSame([], $response->headers->getCookies());
         self::assertFalse($request->hasSession());
