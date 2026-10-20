@@ -8,10 +8,13 @@
     "logs": {
         "text": "build/infection.log"
     },
+    // a mutant process compiles one test container per configuration it boots, so a mutant of
+    // the detector, which most functional tests cover, can exceed the default 10 seconds
+    "timeout": 60,
     "mutators": {
         "@default": true
     },
-    // Measured 2026-10-20 on PHP 8.4.26: 57 mutants, 57 killed, MSI 100%, covered MSI 100%
+    // Measured 2026-10-20 on PHP 8.4.26: 149 mutants, 149 killed, MSI 100%, covered MSI 100%
     "minMsi": 100,
     "minCoveredMsi": 100
 }
