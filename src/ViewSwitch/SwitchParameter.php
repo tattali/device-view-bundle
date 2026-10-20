@@ -59,4 +59,16 @@ final readonly class SwitchParameter
 
         return $view;
     }
+
+    /**
+     * The view the switch parameter carries, whether or not the switch applies, without any log:
+     * a redirect of the bundle carries the view of its target host there. Null when the request
+     * has no valid switch parameter.
+     */
+    public function carriedView(Request $request): ?DeviceType
+    {
+        $query = $request->query->all();
+
+        return \array_key_exists($this->name, $query) ? $this->names->parse($query[$this->name]) : null;
+    }
 }

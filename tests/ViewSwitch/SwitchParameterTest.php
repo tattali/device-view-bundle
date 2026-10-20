@@ -29,6 +29,18 @@ final class SwitchParameterTest extends TestCase
         self::assertSame([], $logger->records);
     }
 
+    public function testTheCarriedViewIsReadWhetherOrNotTheSwitchApplies(): void
+    {
+        $logger = new TestLogger();
+        $parameter = new SwitchParameter(new ViewNames(['mobile' => 'm']), 'view', false, ['GET'], $logger);
+
+        self::assertSame(DeviceType::Mobile, $parameter->carriedView(Request::create('/?view=m', 'POST')));
+        self::assertNull($parameter->carriedView(Request::create('/?view=mobile')), 'not a configured name');
+        self::assertNull($parameter->carriedView(Request::create('/?view[]=m')));
+        self::assertNull($parameter->carriedView(Request::create('/?device_view=m')));
+        self::assertSame([], $logger->records, 'the switch logs an invalid value, not this read');
+    }
+
     public function testWithoutTheParameterThereIsNoSwitchAndNoLog(): void
     {
         $logger = new TestLogger();

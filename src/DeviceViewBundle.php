@@ -9,6 +9,8 @@ use DeviceViewBundle\DependencyInjection\Compiler\CheckConfiguredServicesPass;
 use DeviceViewBundle\DependencyInjection\Compiler\CheckSessionStoragePass;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\Detector\MobileDetectDetector;
+use DeviceViewBundle\Redirect\RedirectAction;
+use DeviceViewBundle\Redirect\RedirectHost;
 use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\View\DeviceType;
@@ -24,6 +26,8 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  * Serves the mobile, tablet or desktop view of a site.
  *
  * The configuration tree and the services live in config/, one file per concern.
+ *
+ * @phpstan-type RedirectOptions array{enabled: bool, host: string|null, action: value-of<RedirectAction>, status: int, keep_query: bool}
  */
 final class DeviceViewBundle extends AbstractBundle
 {
@@ -52,6 +56,7 @@ final class DeviceViewBundle extends AbstractBundle
         $container->import('../config/resolver.php');
         $container->import('../config/switch.php');
         $container->import('../config/remember.php');
+        $container->import('../config/redirect.php');
         // the built-in consent readers, one file each: see builtInConsentReader()
         $container->import('../config/consent/*.php');
 
@@ -81,7 +86,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null, mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -126,6 +131,14 @@ final class DeviceViewBundle extends AbstractBundle
             $checks[] = [$storage, 'device_view.remember.storage', ViewStorageInterface::class];
         }
         $container->services()->alias('device_view.storage', $storage);
+        $builder->getDefinition('device_view.redirect_policy')
+            ->replaceArgument(0, self::redirects($builder, $config['redirect']))
+            ->replaceArgument(3, 'cookie' === $remember['storage'] && null === $cookie['domain'] ? $cookie['name'] : null)
+        ;
+        $builder->getDefinition('device_view.device_redirect_listener')
+            ->replaceArgument(2, $config['redirect']['methods'])
+            ->replaceArgument(3, $config['redirect']['cache_control'])
+        ;
         $builder->setParameter(CheckSessionStoragePass::PARAMETER, 'session' === $remember['storage']);
         $consent = $config['consent'];
         $builder->getDefinition('device_view.remember_policy')->setArguments([
@@ -164,6 +177,42 @@ final class DeviceViewBundle extends AbstractBundle
         $container->services()->alias('device_view.resolver', $resolver ?? 'device_view.resolver.default');
 
         $builder->setParameter(CheckConfiguredServicesPass::PARAMETER, $checks);
+    }
+
+    /**
+     * The options of the enabled redirects, by view, for the redirect policy.
+     *
+     * A host is checked here, unless it holds an env var: the redirect policy checks it at runtime.
+     *
+     * @param array{mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions, ...} $redirect the redirect options
+     *
+     * @return array<value-of<DeviceType>, array{host: string, action: RedirectAction, status: int, keep_query: bool}>
+     */
+    private static function redirects(ContainerBuilder $builder, array $redirect): array
+    {
+        $redirects = [];
+        foreach (DeviceType::cases() as $view) {
+            $options = $redirect[$view->value];
+            $host = $options['host'];
+            if (!$options['enabled'] || null === $host) {
+                continue;
+            }
+
+            $envs = [];
+            $builder->resolveEnvPlaceholders($host, null, $envs);
+            if ([] === $envs && null === RedirectHost::parse($host)) {
+                throw new InvalidConfigurationException(\sprintf('device_view.redirect.%s.host "%s" must be an absolute http(s) URL with a host, an optional port and an optional path, and no query, fragment or user info.', $view->value, $host));
+            }
+
+            $redirects[$view->value] = [
+                'host' => $host,
+                'action' => RedirectAction::from($options['action']),
+                'status' => $options['status'],
+                'keep_query' => $options['keep_query'],
+            ];
+        }
+
+        return $redirects;
     }
 
     /**

@@ -12,7 +12,8 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 // The switch query parameter: its reader (also a step of the resolver, see resolver.php), the
-// URLs of the switch, and the listener that redirects after a switch.
+// URLs of the switch, and the listener that redirects after a switch, to the host of the view
+// when it is served on another host (see redirect.php).
 // DeviceViewBundle::loadExtension() sets the arguments that come from the configuration.
 return static function (ContainerConfigurator $container): void {
     $container->services()
@@ -35,6 +36,9 @@ return static function (ContainerConfigurator $container): void {
                 new AbstractArgument('switch.target'),
                 new AbstractArgument('switch.status'),
                 new AbstractArgument('redirect.cache_control'),
+                new Reference('device_view.redirect_policy'),
+                new Reference('device_view.resolver'),
+                new Reference('device_view.remember_policy'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 31])
     ;

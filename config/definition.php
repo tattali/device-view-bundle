@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\ViewSwitch\SwitchTarget;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -124,8 +125,13 @@ return static function (DefinitionConfigurator $definition): void {
                     ->end()
                 ->end()
             ->end()
+        ->end()
+    ;
+
+    $redirect = $definition->rootNode()
+        ->children()
             ->arrayNode('redirect')
-                ->info('The redirects the bundle answers with.')
+                ->info('The redirects the bundle answers with: the switch redirect, and the redirect of each view to the host it is served on.')
                 ->addDefaultsIfNotSet()
                 ->children()
                     ->arrayNode('methods')
@@ -151,10 +157,46 @@ return static function (DefinitionConfigurator $definition): void {
                             ->thenInvalid('device_view.redirect.cache_control must be null or a non-empty string, got %s.')
                         ->end()
                     ->end()
+    ;
+    foreach ($views as $view) {
+        $redirect
+            ->arrayNode($view)
+                ->info(sprintf('The redirect of the %s view to the host it is served on.', $view))
+                ->addDefaultsIfNotSet()
+                ->validate()
+                    ->ifTrue(static fn (array $options): bool => true === $options['enabled'] && null === $options['host'])
+                    ->thenInvalid(sprintf('device_view.redirect.%1$s.host is required when the %1$s redirect is enabled.', $view))
+                ->end()
+                ->children()
+                    ->booleanNode('enabled')
+                        ->defaultFalse()
+                    ->end()
+                    ->scalarNode('host')
+                        ->info('The host the view is served on: an absolute http(s) URL with a host, an optional port and an optional base path, such as https://m.example.com. A value with an env var is checked at runtime: an invalid one disables the redirect, with an error log.')
+                        ->defaultNull()
+                        ->validate()
+                            ->ifTrue(static fn (mixed $host): bool => null !== $host && !is_string($host))
+                            ->thenInvalid(sprintf('device_view.redirect.%s.host must be null or a string, got %%s.', $view))
+                        ->end()
+                    ->end()
+                    ->enumNode('action')
+                        ->info('On another host: redirect (to the same page on the view\'s host), redirect_without_path (to its home page) or none.')
+                        ->values(array_map(static fn (RedirectAction $action): string => $action->value, RedirectAction::cases()))
+                        ->defaultValue(RedirectAction::Redirect->value)
+                    ->end()
+                    ->enumNode('status')
+                        ->info('The status of the redirect.')
+                        ->values([301, 302, 303, 307, 308])
+                        ->defaultValue(302)
+                    ->end()
+                    ->booleanNode('keep_query')
+                        ->info('Keep the query parameters of the page in the redirect.')
+                        ->defaultTrue()
+                    ->end()
                 ->end()
             ->end()
-        ->end()
-    ;
+        ;
+    }
 
     $definition->rootNode()
         ->children()
