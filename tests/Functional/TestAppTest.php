@@ -42,6 +42,17 @@ final class TestAppTest extends TestCase
         self::assertFileDoesNotExist(\dirname(__DIR__).'/App/config/reference.php');
     }
 
+    public function testADebugKernelLeavesShellVerbosityAsItFoundIt(): void
+    {
+        $before = [getenv('SHELL_VERBOSITY'), $_ENV['SHELL_VERBOSITY'] ?? null, $_SERVER['SHELL_VERBOSITY'] ?? null];
+        $this->kernel = new Kernel(debug: true);
+        $this->kernel->boot();
+
+        $this->kernel->shutdown();
+
+        self::assertSame($before, [getenv('SHELL_VERBOSITY'), $_ENV['SHELL_VERBOSITY'] ?? null, $_SERVER['SHELL_VERBOSITY'] ?? null]);
+    }
+
     #[Group('CFG-01')]
     public function testTheConfigurationRootIsDeviceView(): void
     {

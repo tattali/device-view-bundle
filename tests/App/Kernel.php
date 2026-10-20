@@ -44,6 +44,13 @@ final class Kernel extends BaseKernel
     private $exceptionHandlerBeforeBoot;
 
     /**
+     * SHELL_VERBOSITY before boot, in $_ENV, $_SERVER and getenv(); null when it was not set.
+     *
+     * @var array{env: mixed, server: mixed, getenv: string|false}|null
+     */
+    private ?array $shellVerbosityBeforeBoot = null;
+
+    /**
      * @param array<string, mixed>        $deviceViewConfig the device_view configuration
      * @param array<string, class-string> $services         public services of the application, by id
      */
@@ -62,16 +69,22 @@ final class Kernel extends BaseKernel
     {
         if (!$this->booted) {
             $this->exceptionHandlerBeforeBoot = self::currentExceptionHandler();
+            $this->shellVerbosityBeforeBoot = [
+                'env' => $_ENV['SHELL_VERBOSITY'] ?? null,
+                'server' => $_SERVER['SHELL_VERBOSITY'] ?? null,
+                'getenv' => getenv('SHELL_VERBOSITY'),
+            ];
         }
 
         parent::boot();
     }
 
     /**
-     * Also removes the exception handlers that booting added.
+     * Also removes the exception handlers that booting added, and restores SHELL_VERBOSITY.
      *
      * On Symfony 8.0, FrameworkBundle::boot() registers the ErrorHandler and nothing removes
-     * it, so PHPUnit marks the test risky.
+     * it, so PHPUnit marks the test risky. A debug kernel sets SHELL_VERBOSITY to 3 for the
+     * whole process, so every kernel booted after it would print its info logs.
      */
     #[\Override]
     public function shutdown(): void
@@ -80,6 +93,13 @@ final class Kernel extends BaseKernel
 
         while (null !== ($handler = self::currentExceptionHandler()) && $handler !== $this->exceptionHandlerBeforeBoot) {
             restore_exception_handler();
+        }
+
+        if (null !== $before = $this->shellVerbosityBeforeBoot) {
+            self::restore($_ENV, $before['env']);
+            self::restore($_SERVER, $before['server']);
+            putenv(false === $before['getenv'] ? 'SHELL_VERBOSITY' : 'SHELL_VERBOSITY='.$before['getenv']);
+            $this->shellVerbosityBeforeBoot = null;
         }
     }
 
@@ -151,6 +171,18 @@ final class Kernel extends BaseKernel
     protected function configureRoutes(RoutingConfigurator $routes): void
     {
         $routes->import(__DIR__.'/config/routes.php');
+    }
+
+    /**
+     * @param array<array-key, mixed> $variables
+     */
+    private static function restore(array &$variables, mixed $value): void
+    {
+        if (null === $value) {
+            unset($variables['SHELL_VERBOSITY']);
+        } else {
+            $variables['SHELL_VERBOSITY'] = $value;
+        }
     }
 
     private static function currentExceptionHandler(): ?callable
