@@ -26,13 +26,14 @@
         "php": ">=8.4",
         "symfony/config": "^8.0",
         "symfony/dependency-injection": "^8.0",
+        "symfony/http-foundation": "^8.0",
         "symfony/http-kernel": "^8.0"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.95",
         "infection/infection": "^0.35",
         "matomo/device-detector": "^6.4.2",
-        "mobiledetect/mobiledetectlib": "^4.8",
+        "mobiledetect/mobiledetectlib": "^4.8.07",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-phpunit": "^2.0",
@@ -40,9 +41,9 @@
         "phpstan/phpstan-symfony": "^2.0",
         "phpunit/phpunit": "^12.5",
         "shipmonk/composer-dependency-analyser": "^1.8",
+        "symfony/cache": "^8.0",
         "symfony/filesystem": "^8.0",
         "symfony/framework-bundle": "^8.0",
-        "symfony/http-foundation": "^8.0",
         "symfony/routing": "^8.0",
         "symfony/twig-bundle": "^8.0",
         "symfony/web-profiler-bundle": "^8.0",
@@ -50,12 +51,12 @@
     },
     "conflict": {
         "matomo/device-detector": "<6.4.2",
-        "mobiledetect/mobiledetectlib": "<4.8",
+        "mobiledetect/mobiledetectlib": "<4.8.07",
         "symfony/event-dispatcher-contracts": "<2.5.3 || >=3.0,<3.4.2"
     },
     "suggest": {
         "matomo/device-detector": "To detect the view with Matomo Device Detector (^6.4.2)",
-        "mobiledetect/mobiledetectlib": "To detect the view with Mobile Detect (^4.8)",
+        "mobiledetect/mobiledetectlib": "To detect the view with Mobile Detect (^4.8.07)",
         "twig/twig": "To use the view functions in Twig templates (^3.21)"
     },
     "autoload": {

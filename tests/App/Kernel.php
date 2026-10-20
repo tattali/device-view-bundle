@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Tests\App;
 
+use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\DeviceViewBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -18,10 +19,22 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
  *
  * Each bundle configuration gets its own cache directory and container class, so one test
  * run can boot the kernel with several configurations.
+ *
+ * Tests read the bundle's private services through the public aliases of TEST_ALIASES.
  */
 final class Kernel extends BaseKernel
 {
     use MicroKernelTrait;
+
+    /**
+     * Public aliases of the bundle's services, keyed by the public id tests ask for.
+     *
+     * @var array<string, string>
+     */
+    public const array TEST_ALIASES = [
+        'test.device_view.detector' => 'device_view.detector',
+        'test.device_detector_interface' => DeviceDetectorInterface::class,
+    ];
 
     private static ?string $runDir = null;
 
@@ -31,15 +44,17 @@ final class Kernel extends BaseKernel
     private $exceptionHandlerBeforeBoot;
 
     /**
-     * @param array<string, mixed> $deviceViewConfig the device_view configuration
+     * @param array<string, mixed>        $deviceViewConfig the device_view configuration
+     * @param array<string, class-string> $services         public services of the application, by id
      */
     public function __construct(
         private readonly array $deviceViewConfig = [],
         string $environment = 'test',
         bool $debug = false,
+        private readonly array $services = [],
     ) {
         parent::__construct($environment, $debug);
-        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug]));
+        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug, $services]));
     }
 
     #[\Override]
@@ -120,10 +135,17 @@ final class Kernel extends BaseKernel
         ]);
         $container->extension('device_view', $this->deviceViewConfig);
 
-        $container->services()
+        $services = $container->services();
+        $services
             ->set(TestController::class)
             ->tag('controller.service_arguments')
         ;
+        foreach ($this->services as $id => $class) {
+            $services->set($id, $class)->public();
+        }
+        foreach (self::TEST_ALIASES as $alias => $id) {
+            $services->alias($alias, $id)->public();
+        }
     }
 
     protected function configureRoutes(RoutingConfigurator $routes): void
