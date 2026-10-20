@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+The page that captured the Klaro fixtures of this directory (2026-10-20). Klaro's own code writes
+the cookie; nothing is loaded from the network.
+
+1. Put dist/klaro.js of npm klaro 0.7.21 next to this file (npm pack klaro@0.7.21; sha256 of
+   dist/klaro.js: 051b44f5c18f7f5ca70550212d3c03b7d50ef3f4212a611aa0d97438f5b901f1).
+2. Serve the directory on 127.0.0.1, e.g. python3 -m http.server 8765 --bind 127.0.0.1.
+3. For each mode (accept, decline, partial, partial-other, absent, custom), run Chrome with a new
+   profile: chrome --headless=new --user-data-dir=<new dir> --virtual-time-budget=5000
+   --dump-dom "http://127.0.0.1:8765/capture.html?mode=<mode>". The #out element holds
+   document.cookie after the click.
+-->
+<html><head><meta charset="utf-8"><title>klaro capture</title>
+<script>
+var mode = new URLSearchParams(location.search).get('mode');
+var services = [
+  {name: 'device_view', purposes: ['functional']},
+  {name: 'analytics', purposes: ['analytics']},
+  {name: 'youtube', purposes: ['marketing']}
+];
+if (mode === 'absent') services = [{name: 'analytics', purposes: ['analytics']}];
+window.klaroConfig = {
+  acceptAll: true,
+  services: mode === 'custom' ? [{name: 'views', purposes: ['functional']}] : services
+};
+if (mode === 'custom') window.klaroConfig.storageName = 'klaro-consent';
+</script>
+<script defer src="klaro.js"></script>
+</head><body><pre id="out">pending</pre>
+<script>
+function click(sel) { var el = document.querySelector(sel); if (!el) throw new Error('missing ' + sel); el.click(); }
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    try {
+      if (mode === 'accept' || mode === 'absent' || mode === 'custom') click('.cookie-notice .cm-btn-success');
+      if (mode === 'decline') click('.cookie-notice .cn-decline');
+      if (mode === 'partial' || mode === 'partial-other') {
+        klaro.show(undefined, true);
+        setTimeout(function () {
+          click(mode === 'partial' ? '#service-item-device_view' : '#service-item-analytics');
+          click('.cm-btn-accept');
+          document.getElementById('out').textContent = 'version=' + klaro.version() + '\n' + document.cookie;
+        }, 300);
+        return;
+      }
+      document.getElementById('out').textContent = 'version=' + klaro.version() + '\n' + document.cookie;
+    } catch (e) { document.getElementById('out').textContent = 'error ' + e; }
+  }, 300);
+});
+</script>
+</body></html>
