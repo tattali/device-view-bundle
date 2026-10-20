@@ -66,6 +66,7 @@ final class RememberTest extends TestCase
         self::assertNoCookie($response);
     }
 
+    #[Group('REG-17')]
     public function testADetectedViewIsNotRememberedByDefault(): void
     {
         self::assertPage('mobile detector', $this->handle(self::request('/view', 'iphone')));

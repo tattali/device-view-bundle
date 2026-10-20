@@ -909,7 +909,7 @@ One named test per bug of the old bundle. Each also passes on every line.
 | REG-14 | Redirects are not cacheable | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
 | REG-15 | Route override without loading the route collection | `M`, the router's `getRouteCollection()` throws | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | planned |
 | REG-16 | Invalid config fails at build, not at request time | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | `InvalidConfigurationException` (CFG-34) before any request | planned |
-| REG-17 | No cookie on a first visit | — | `GET /view`, `UA=iphone`, no cookie | 200 `"mobile detector"`, no `Set-Cookie` | planned |
+| REG-17 | No cookie on a first visit | — | `GET /view`, `UA=iphone`, no cookie | 200 `"mobile detector"`, no `Set-Cookie` | active |
 | REG-18 | The desktop redirect works | `D` | `GET https://m.example.com/`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/?device_view=desktop` | planned |
 | REG-19 | A view never leaks to the next request | `M`, `D` | one kernel: `GET https://m.example.com/view?device_view=desktop` `UA=iphone`, then `GET https://m.example.com/view` `UA=iphone` with no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`; second response: 200 `"mobile detector"`, no `Location` (a leaked desktop view would redirect to `www`) | planned |
 
