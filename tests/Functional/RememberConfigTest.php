@@ -224,6 +224,66 @@ final class RememberConfigTest extends TestCase
         $this->boot(['remember' => ['cookie' => ['domain' => $domain]]]);
     }
 
+    #[Group('CFG-20')]
+    public function testAStorageServiceImplementsTheInterface(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The service "app.not_a_storage" set in device_view.remember.storage must implement DeviceViewBundle\Remember\ViewStorageInterface.');
+
+        $this->boot(['remember' => ['storage' => 'app.not_a_storage']], ['app.not_a_storage' => \stdClass::class]);
+    }
+
+    #[Group('CFG-56')]
+    public function testAStorageServiceExists(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The service "app.nope" set in device_view.remember.storage does not exist.');
+
+        $this->boot(['remember' => ['storage' => 'app.nope']]);
+    }
+
+    public function testStorageIsNotEmpty(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The path "device_view.remember.storage" cannot contain an empty value');
+
+        $this->boot(['remember' => ['storage' => '']]);
+    }
+
+    public function testStorageIsAString(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('Invalid type for path "device_view.remember.storage"');
+
+        $this->boot(['remember' => ['storage' => ['cookie']]]);
+    }
+
+    #[Group('CFG-28')]
+    public function testSessionKeyIsNotEmpty(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The path "device_view.remember.session.key" cannot contain an empty value');
+
+        $this->boot(['remember' => ['session' => ['key' => '']]]);
+    }
+
+    #[Group('CFG-29')]
+    public function testStorageNoneCannotRememberADetectedView(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('device_view.remember.detected_view cannot be true when device_view.remember.storage is "none".');
+
+        $this->boot(['remember' => ['storage' => 'none', 'detected_view' => true]]);
+    }
+
+    public function testOnlyStorageNoneForbidsRememberingADetectedView(): void
+    {
+        $this->boot(['remember' => ['storage' => 'session', 'detected_view' => true]]);
+        $this->boot(['remember' => ['storage' => 'none', 'detected_view' => false]]);
+
+        self::assertSame('home page', $this->handle(self::request('/'))->getContent());
+    }
+
     public function testUnknownRememberKey(): void
     {
         $this->expectException(InvalidConfigurationException::class);

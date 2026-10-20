@@ -182,7 +182,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error; debug log `Ignored an invalid device view from the remember storage.` | active |
 | VAL-10 | Empty cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL` | active |
 | VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | active |
-| VAL-12 | Forged session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = phone` | 200 `"desktop detector"`; the session no longer has `_device_view` | planned |
+| VAL-12 | Forged session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = phone` | 200 `"desktop detector"`; the session no longer has `_device_view` | active |
 | VAL-13 | Invalid trusted header value is ignored | `TH` | `GET /view`, `X-Device-View: phone`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, X-Device-View, User-Agent]`; debug log `Ignored an invalid device view from the trusted header.` | planned |
 
 ## 2. Resolution order and sources (RES), design.md sections 2 and 5
@@ -385,12 +385,12 @@ created before.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| SES-01 | Switch writes the session | `remember: { storage: session }` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `device_view` cookie; the session holds `_device_view = mobile` | planned |
+| SES-01 | Switch writes the session | `remember: { storage: session }` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `device_view` cookie; the session holds `_device_view = mobile` | active |
 | SES-02 | Reads a previous session | `remember: { storage: session }` | `GET /view`, previous session holding `_device_view = tablet`, `UA=iphone` | 200 `"tablet remembered"`, `Vary: [Cookie]` | planned |
 | SES-03 | Never starts a session to read | `remember: { storage: session }` | `GET /view`, no session cookie, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]`; the session is not started; no session cookie | planned |
 | SES-04 | Lifetimes are ignored | `remember: { storage: session }`, `TAC` | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | no `device_view` cookie; the session holds `_device_view = mobile`; the session cookie is the framework's, unchanged | planned |
-| SES-05 | Custom session key | `remember: { storage: session, session: { key: dv } }` | `GET /view?device_view=mobile` | the session holds `dv = mobile` and no `_device_view` | planned |
-| SES-06 | Detected view written to the session | `remember: { storage: session, detected_view: true }` | `GET /view`, `UA=iphone` | 200; the session holds `_device_view = mobile` | planned |
+| SES-05 | Custom session key | `remember: { storage: session, session: { key: dv } }` | `GET /view?device_view=mobile` | the session holds `dv = mobile` and no `_device_view` | active |
+| SES-06 | Detected view written to the session | `remember: { storage: session, detected_view: true }` | `GET /view`, `UA=iphone` | 200; the session holds `_device_view = mobile` | active |
 | SES-07 | Detected view with consent denied is not written | `remember: { storage: session, detected_view: true }`, `TAC` | `GET /view`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 200; the session is not started | planned |
 | SES-08 | The route default stops a session write | `remember: { storage: session }` | `GET /no-remember?device_view=mobile` | 302, `Location: /no-remember`; the session is not started | planned |
 
@@ -398,11 +398,11 @@ created before.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| STO-01 | `storage: none` never writes | `remember: { storage: none }` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `Set-Cookie`, no session | planned |
+| STO-01 | `storage: none` never writes | `remember: { storage: none }` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `Set-Cookie`, no session | active |
 | STO-02 | `storage: none` never reads | `remember: { storage: none }` | `GET /view`, `Cookie: device_view=mobile`, `UA=desktop_chrome` | 200 `"desktop detector"`, `Vary: [User-Agent]` | planned |
-| STO-03 | `storage: none` never expires a forged cookie | `remember: { storage: none }` | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, no `Set-Cookie` | planned |
-| STO-04 | Custom storage service | `remember: { storage: app.array_storage }` (a test `ViewStorageInterface` keeping views in memory) | `GET /view?device_view=tablet`, then `GET /view` | 302 without `Set-Cookie`, then 200 `"tablet remembered"` | planned |
-| STO-05 | The interface alias follows the configuration | `remember: { storage: app.array_storage }` | container | `ViewStorageInterface` and `device_view.storage` resolve to `app.array_storage` | planned |
+| STO-03 | `storage: none` never expires a forged cookie | `remember: { storage: none }` | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, no `Set-Cookie` | active |
+| STO-04 | Custom storage service | `remember: { storage: app.array_storage }` (a test `ViewStorageInterface` keeping views in memory) | `GET /view?device_view=tablet`, then `GET /view` | 302 without `Set-Cookie`, then 200 `"tablet remembered"` | active |
+| STO-05 | The interface alias follows the configuration | `remember: { storage: app.array_storage }` | container | `ViewStorageInterface` and `device_view.storage` resolve to `app.array_storage` | active |
 
 ## 10. Consent (CON), design.md section 8
 
@@ -816,7 +816,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-17 | `switch.target` enum | `switch: { target: back }` | container build | message contains `The value "back" is not allowed for path "device_view.switch.target"` | active |
 | CFG-18 | `switch.status` set | `switch: { status: 301 }` | container build | message contains `The value 301 is not allowed for path "device_view.switch.status"` | active |
 | CFG-19 | `switch.parameter` not empty | `switch: { parameter: '' }` | container build | message contains `The path "device_view.switch.parameter" cannot contain an empty value` | active |
-| CFG-20 | `remember.storage` service | `remember: { storage: app.not_a_storage }` | container build | message contains `The service "app.not_a_storage" set in device_view.remember.storage must implement DeviceViewBundle\Remember\ViewStorageInterface.` | planned |
+| CFG-20 | `remember.storage` service | `remember: { storage: app.not_a_storage }` | container build | message contains `The service "app.not_a_storage" set in device_view.remember.storage must implement DeviceViewBundle\Remember\ViewStorageInterface.` | active |
 | CFG-21 | Negative lifetime | `remember: { lifetime: -1 }` | container build | message contains `The value -1 is too small for path "device_view.remember.lifetime"` | active |
 | CFG-22 | `consented_lifetime` below `lifetime` | `remember: { lifetime: 3600, consented_lifetime: 60 }` | container build | message contains `device_view.remember.consented_lifetime (60) must be greater than or equal to device_view.remember.lifetime (3600).` | active |
 | CFG-23 | `consented_lifetime` is free when `lifetime` is 0 | `remember: { lifetime: 0, consented_lifetime: 60 }` | container build | builds | active |
@@ -824,8 +824,8 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-25 | `cookie.same_site` enum | `remember: { cookie: { same_site: relaxed } }` | container build | message contains `The value "relaxed" is not allowed for path "device_view.remember.cookie.same_site"` | active |
 | CFG-26 | `same_site: none` needs secure | `remember: { cookie: { same_site: none, secure: false } }` | container build | message contains `device_view.remember.cookie.same_site "none" needs device_view.remember.cookie.secure set to true or auto.` | active |
 | CFG-27 | Cookie name | `remember: { cookie: { name: 'dv;x' } }` | container build | message contains `The cookie name "dv;x" is invalid.` | active |
-| CFG-28 | Session key not empty | `remember: { session: { key: '' } }` | container build | message contains `The path "device_view.remember.session.key" cannot contain an empty value` | planned |
-| CFG-29 | `storage: none` with `detected_view` | `remember: { storage: none, detected_view: true }` | container build | message contains `device_view.remember.detected_view cannot be true when device_view.remember.storage is "none".` | planned |
+| CFG-28 | Session key not empty | `remember: { session: { key: '' } }` | container build | message contains `The path "device_view.remember.session.key" cannot contain an empty value` | active |
+| CFG-29 | `storage: none` with `detected_view` | `remember: { storage: none, detected_view: true }` | container build | message contains `device_view.remember.detected_view cannot be true when device_view.remember.storage is "none".` | active |
 | CFG-30 | `storage: none` with a consent provider | `remember: { storage: none }`, `TAC` | container build | message contains `device_view.consent.provider cannot be set when device_view.remember.storage is "none".` | planned |
 | CFG-31 | `consent.provider` service | `consent: { provider: app.not_a_checker }` | container build | message contains `The service "app.not_a_checker" set in device_view.consent.provider must implement DeviceViewBundle\Consent\ConsentCheckerInterface.` | planned |
 | CFG-32 | Consent key not empty | `consent: { provider: tarteaucitron, key: '' }` | container build | message contains `The path "device_view.consent.key" cannot contain an empty value` | planned |
@@ -852,6 +852,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-53 | Consent cookie not empty | `consent: { provider: tarteaucitron, cookie: '' }` | container build | message contains `The path "device_view.consent.cookie" cannot contain an empty value` | planned |
 | CFG-54 | Mobile Detect in the chain not installed | `detector: { id: chain }` (chain `[client_hints, mobile_detect]`), mobiledetect not installed | container build | `LogicException`, message `The "mobile_detect" detector in device_view.detector.chain needs mobiledetect/mobiledetectlib. Run "composer require mobiledetect/mobiledetectlib", or remove it from device_view.detector.chain.` | planned |
 | CFG-55 | Matomo in the chain not installed | `detector: { id: chain, chain: [client_hints, matomo] }`, matomo not installed | container build | `LogicException`, message `The "matomo" detector in device_view.detector.chain needs matomo/device-detector. Run "composer require matomo/device-detector", or remove it from device_view.detector.chain.` | planned |
+| CFG-56 | `remember.storage` service missing | `remember: { storage: app.nope }` | container build | message contains `The service "app.nope" set in device_view.remember.storage does not exist.` | active |
 
 ## 25. Configuration reference (REF), design.md section 12
 

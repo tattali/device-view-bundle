@@ -27,13 +27,17 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  * expired. A response that writes or expires the stored value becomes private when
  * http_cache.private_when_remembering is set.
  *
- * Skipped requests never write nor expire. Once this listener ran, DeviceView ignores changes.
+ * Skipped requests never write nor expire, and neither does any request without a storage
+ * (remember.storage: none). Once this listener ran, DeviceView ignores changes.
  */
 final readonly class RememberListener
 {
+    /**
+     * @param ViewStorageInterface|null $storage the remember storage, or null when remember.storage is none
+     */
     public function __construct(
         private ViewResolverInterface $resolver,
-        private ViewStorageInterface $storage,
+        private ?ViewStorageInterface $storage,
         private RememberPolicy $policy,
         private ViewNames $names,
         private bool $privateWhenRemembering = true,
@@ -54,14 +58,15 @@ final readonly class RememberListener
         }
 
         $context->markResponseBuilt();
-        if ($context->skipped) {
+        $storage = $this->storage;
+        if ($context->skipped || null === $storage) {
             return;
         }
 
         $response = $event->getResponse();
-        $stored = $this->remember($request, $response, $context);
+        $stored = $this->remember($request, $response, $context, $storage);
         if (!$stored && $context->forgedStoredValue) {
-            $this->storage->clear($request, $response);
+            $storage->clear($request, $response);
             $stored = true;
         }
 
@@ -73,7 +78,7 @@ final readonly class RememberListener
     /**
      * Writes the view when a write is planned and allowed.
      */
-    private function remember(Request $request, Response $response, DeviceViewContext $context): bool
+    private function remember(Request $request, Response $response, DeviceViewContext $context, ViewStorageInterface $storage): bool
     {
         $trigger = $this->trigger($context);
         if (null === $trigger || false === $context->remember) {
@@ -91,7 +96,7 @@ final readonly class RememberListener
             $view = DeviceType::Mobile;
         }
 
-        $this->storage->write($request, $response, $this->names->nameOf($view), $lifetime);
+        $storage->write($request, $response, $this->names->nameOf($view), $lifetime);
 
         return true;
     }

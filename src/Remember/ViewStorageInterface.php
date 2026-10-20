@@ -8,12 +8,14 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Where the view of a visitor is remembered between requests: the cookie storage by default.
+ * Where the view of a visitor is remembered between requests: the cookie storage by default,
+ * the session storage or none with device_view.remember.storage.
  *
  * The storage keeps a view name (device_view.views.names) and gives back what it holds as the
  * request gives it: the remembered step of the resolver validates it, so a storage never needs
  * to. Implementations are shared between requests, so they keep no request state. Replace it by
- * decorating device_view.storage.
+ * setting device_view.remember.storage to the id of your service, or by decorating
+ * device_view.storage.
  */
 interface ViewStorageInterface
 {
