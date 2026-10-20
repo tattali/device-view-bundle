@@ -274,7 +274,11 @@ final class ScenarioCatalogueTest extends TestCase
     {
         $cited = CitedScenarios::inDirectory(__DIR__, __NAMESPACE__);
 
-        self::assertArrayNotHasKey('SW-03', $cited, 'fixture classes are not test classes');
+        $fixtureCitations = array_filter(
+            array_merge(...array_values($cited)),
+            static fn (string $citer): bool => str_starts_with($citer, __NAMESPACE__.'\\Fixtures\\'),
+        );
+        self::assertSame([], $fixtureCitations, 'fixture classes are not test classes');
         self::assertContains(Functional\TestAppTest::class.'::testTheConfigurationRootIsDeviceView', $cited['CFG-01'] ?? []);
     }
 

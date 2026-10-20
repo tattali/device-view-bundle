@@ -6,6 +6,7 @@ use DeviceViewBundle\DeviceView;
 use DeviceViewBundle\EventListener\ContextListener;
 use DeviceViewBundle\Resolver\Step\DetectorStep;
 use DeviceViewBundle\Resolver\Step\ForcedStep;
+use DeviceViewBundle\Resolver\Step\SwitchStep;
 use DeviceViewBundle\Resolver\ViewResolver;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\View\ViewNames;
@@ -28,6 +29,8 @@ return static function (ContainerConfigurator $container): void {
 
         // the sources of the resolution order (design.md section 5), each step in its place
         ->set('device_view.resolver.step.forced', ForcedStep::class)
+        ->set('device_view.resolver.step.switch', SwitchStep::class)
+            ->args([new Reference('device_view.switch_parameter')])
         ->set('device_view.resolver.step.detector', DetectorStep::class)
             ->args([new Reference('device_view.detector')])
 
@@ -35,6 +38,7 @@ return static function (ContainerConfigurator $container): void {
             ->args([
                 [
                     new Reference('device_view.resolver.step.forced'),
+                    new Reference('device_view.resolver.step.switch'),
                     new Reference('device_view.resolver.step.detector'),
                 ],
                 new AbstractArgument('default_view'),
@@ -47,6 +51,7 @@ return static function (ContainerConfigurator $container): void {
                 new Reference('request_stack'),
                 new Reference('device_view.resolver'),
                 new Reference('device_view.view_names'),
+                new Reference('device_view.switch_url_generator'),
                 new AbstractArgument('default_view after tablet_as_mobile'),
                 new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
             ])

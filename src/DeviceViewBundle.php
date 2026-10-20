@@ -9,6 +9,7 @@ use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\Detector\MobileDetectDetector;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\View\DeviceType;
+use DeviceViewBundle\ViewSwitch\SwitchTarget;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -44,6 +45,7 @@ final class DeviceViewBundle extends AbstractBundle
     {
         $container->import('../config/services.php');
         $container->import('../config/resolver.php');
+        $container->import('../config/switch.php');
 
         /** @var array{id: non-empty-string, mobile_detect: array{headers: non-empty-list<string>, cache: string|null}} $detector */
         $detector = $config['detector'];
@@ -70,7 +72,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -79,7 +81,20 @@ final class DeviceViewBundle extends AbstractBundle
             ->replaceArgument(2, $tabletAsMobile)
         ;
         $builder->getDefinition('device_view.device_view')
-            ->replaceArgument(3, $tabletAsMobile && DeviceType::Tablet === $defaultView ? DeviceType::Mobile : $defaultView)
+            ->replaceArgument(4, $tabletAsMobile && DeviceType::Tablet === $defaultView ? DeviceType::Mobile : $defaultView)
+        ;
+
+        $switch = $config['switch'];
+        $builder->getDefinition('device_view.switch_parameter')
+            ->replaceArgument(1, $switch['parameter'])
+            ->replaceArgument(2, $switch['enabled'])
+            ->replaceArgument(3, $config['redirect']['methods'])
+        ;
+        $builder->getDefinition('device_view.switch_url_generator')->replaceArgument(0, $switch['parameter']);
+        $builder->getDefinition('device_view.switch_listener')
+            ->replaceArgument(2, SwitchTarget::from($switch['target']))
+            ->replaceArgument(3, $switch['status'])
+            ->replaceArgument(4, $config['redirect']['cache_control'])
         ;
 
         $resolver = $config['services']['resolver'];

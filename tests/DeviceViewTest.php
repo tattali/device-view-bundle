@@ -14,6 +14,7 @@ use DeviceViewBundle\Tests\App\TestLogger;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
 use DeviceViewBundle\View\ViewSource;
+use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
@@ -114,11 +115,41 @@ final class DeviceViewTest extends TestCase
         self::assertSame(DeviceType::Desktop, $deviceView->getView());
     }
 
-    private static function deviceView(RequestStack $stack, ViewNames $names = new ViewNames(), DeviceType $defaultView = DeviceType::Desktop, ?TestLogger $logger = null): DeviceView
+    public function testGetSwitchUrlGivesTheConfiguredNameOfTheView(): void
+    {
+        $stack = new RequestStack();
+        $stack->push(Request::create('/view?a=1'));
+        $deviceView = self::deviceView($stack, new ViewNames(['mobile' => 'm', 'tablet' => 't']), switchUrls: new SwitchUrlGenerator('v'));
+
+        self::assertSame('/view?a=1&v=m', $deviceView->getSwitchUrl(DeviceType::Mobile));
+        self::assertSame('/view?a=1&v=t', $deviceView->getSwitchUrl('t', 'current'));
+        self::assertSame('/?v=desktop', $deviceView->getSwitchUrl('desktop', 'home'));
+    }
+
+    public function testGetSwitchUrlWithoutARequest(): void
+    {
+        self::assertSame('/?device_view=tablet', self::deviceView(new RequestStack())->getSwitchUrl(DeviceType::Tablet));
+    }
+
+    public function testGetSwitchUrlRejectsATargetThatIsNotAUrl(): void
+    {
+        $deviceView = self::deviceView(new RequestStack());
+
+        foreach (['none', 'back', 'Current', ''] as $target) {
+            try {
+                $deviceView->getSwitchUrl(DeviceType::Mobile, $target);
+                self::fail(\sprintf('getSwitchUrl() accepted the target "%s".', $target));
+            } catch (\InvalidArgumentException $exception) {
+                self::assertSame(\sprintf('Unknown switch target "%s". Expected "current" or "home".', $target), $exception->getMessage());
+            }
+        }
+    }
+
+    private static function deviceView(RequestStack $stack, ViewNames $names = new ViewNames(), DeviceType $defaultView = DeviceType::Desktop, ?TestLogger $logger = null, SwitchUrlGenerator $switchUrls = new SwitchUrlGenerator()): DeviceView
     {
         $resolver = new ViewResolver([new ForcedStep(), new DetectorStep(new HeaderDetector())]);
 
-        return new DeviceView($stack, $resolver, $names, $defaultView, $logger);
+        return new DeviceView($stack, $resolver, $names, $switchUrls, $defaultView, $logger);
     }
 
     private static function mainRequest(DeviceViewContext $context, ?string $view): Request

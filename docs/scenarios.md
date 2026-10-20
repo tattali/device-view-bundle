@@ -172,11 +172,11 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | VAL-01 | Switch token is trimmed and lower-cased | — | `GET /view?device_view=%20Mobile%20` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | planned |
-| VAL-02 | Unknown switch word is ignored | — | `GET /view?device_view=phone` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie`; debug log `Ignored an invalid device view from the switch parameter.` | planned |
-| VAL-03 | `not_mobile` is ignored | — | `GET /view?device_view=not_mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | planned |
-| VAL-04 | Array switch value is ignored | — | `GET /view?device_view[]=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie`, no error | planned |
-| VAL-05 | Empty switch value is ignored | — | `GET /view?device_view=` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | planned |
-| VAL-06 | Switch token must be a configured name | `views: { names: { desktop: d } }` | `GET /view?device_view=desktop` | 200 `"d detector"`, no `Location`, no `Set-Cookie` | planned |
+| VAL-02 | Unknown switch word is ignored | — | `GET /view?device_view=phone` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie`; debug log `Ignored an invalid device view from the switch parameter.` | active |
+| VAL-03 | `not_mobile` is ignored | — | `GET /view?device_view=not_mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
+| VAL-04 | Array switch value is ignored | — | `GET /view?device_view[]=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie`, no error | active |
+| VAL-05 | Empty switch value is ignored | — | `GET /view?device_view=` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
+| VAL-06 | Switch token must be a configured name | `views: { names: { desktop: d } }` | `GET /view?device_view=desktop` | 200 `"d detector"`, no `Location`, no `Set-Cookie` | active |
 | VAL-07 | Stored token is trimmed and lower-cased | — | `GET /view`, `Cookie: device_view=MOBILE` | 200 `"mobile remembered"`, no `Set-Cookie` | planned |
 | VAL-08 | Forged cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL`, `Vary: [Cookie, User-Agent]`; debug log `Ignored an invalid device view from the remember storage.` | planned |
 | VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error; debug log `Ignored an invalid device view from the remember storage.` | planned |
@@ -199,8 +199,8 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | RES-08 | The view is resolved once per request | — (TwigBundle registered) | `GET /twig`, `UA=iphone`, the template and a `ViewResolvedEvent` listener read the view several times | the detector is called once; `ViewResolvedEvent` is dispatched once | planned |
 | RES-09 | Sub-requests read the main request's view | — | `GET /with-sub-request`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`; `ViewResolvedEvent` dispatched once; the sub-request has no `_device_view` attribute | planned |
 | RES-10 | The context lives in the main request | — | `GET /view`, `UA=iphone` | after `kernel.request`, the main request attribute `_device_view` is a `DeviceViewContext` | active |
-| RES-11 | The resolver ignores the switch parameter when the method is not allowed | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Set-Cookie` | planned |
-| RES-12 | The resolver ignores the switch parameter when the switch is disabled | `switch: { enabled: false }` | `GET /view?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | planned |
+| RES-11 | The resolver ignores the switch parameter when the method is not allowed | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Set-Cookie` | active |
+| RES-12 | The resolver ignores the switch parameter when the switch is disabled | `switch: { enabled: false }` | `GET /view?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
 
 ## 3. Views (VW): views.names, default_view, tablet_as_mobile, design.md sections 3 and 4
 
@@ -214,7 +214,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VW-06 | `tablet_as_mobile` maps `default_view: tablet` | `tablet_as_mobile: true`, `default_view: tablet` | `GET /view`, `UA=empty` | 200 `"mobile default"` | active |
 | VW-07 | `tablet_as_mobile` leaves other views alone | `tablet_as_mobile: true` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"` | active |
 | VW-08 | Renamed views: switch | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=m` | 302, `Location: /view`, `Set-Cookie: device_view=m; path=/; httponly; samesite=lax` | planned |
-| VW-09 | Renamed views: the canonical name is no longer a token | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=mobile` | 200 `"d detector"`, no `Set-Cookie` | planned |
+| VW-09 | Renamed views: the canonical name is no longer a token | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=mobile` | 200 `"d detector"`, no `Set-Cookie` | active |
 | VW-10 | Renamed views: remembered | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=t` | 200 `"t remembered"` | planned |
 | VW-11 | Renamed views: a stored canonical name is forged | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"d detector"`, `Set-Cookie: SC-DEL` | planned |
 | VW-12 | Renamed views: cross-host redirect | `views: { names: { mobile: m } }`, `M` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=m` | planned |
@@ -296,27 +296,27 @@ process with the package's autoloading removed.
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | SW-01 | Switch to the current page | — | `GET /view?device_view=mobile` | 302, `Location: /view`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)`, no `Vary` | planned |
-| SW-02 | Other query parameters are kept in order | — | `GET /view?b=2&device_view=mobile&a=1` | 302, `Location: /view?b=2&a=1` (not sorted) | planned |
-| SW-03 | The query is rebuilt with RFC 3986 encoding | — | `GET /view?q=a+b&tags[]=x&device_view=mobile` | 302, `Location: /view?q=a%20b&tags%5B0%5D=x` | planned |
-| SW-04 | The base URL is kept | — | front controller `/app`: `GET http://localhost/app/view?device_view=mobile` | 302, `Location: /app/view` | planned |
+| SW-02 | Other query parameters are kept in order | — | `GET /view?b=2&device_view=mobile&a=1` | 302, `Location: /view?b=2&a=1` (not sorted) | active |
+| SW-03 | The query is rebuilt with RFC 3986 encoding | — | `GET /view?q=a+b&tags[]=x&device_view=mobile` | 302, `Location: /view?q=a%20b&tags%5B0%5D=x` | active |
+| SW-04 | The base URL is kept | — | front controller `/app`: `GET http://localhost/app/view?device_view=mobile` | 302, `Location: /app/view` | active |
 | SW-05 | `target: home` | `switch: { target: home }` | `GET /view?a=1&device_view=mobile` | 302, `Location: /`, `Set-Cookie: SC(mobile)` | planned |
-| SW-06 | `target: home` keeps the base URL | `switch: { target: home }` | front controller `/app`: `GET http://localhost/app/view?device_view=mobile` | 302, `Location: /app/` | planned |
+| SW-06 | `target: home` keeps the base URL | `switch: { target: home }` | front controller `/app`: `GET http://localhost/app/view?device_view=mobile` | 302, `Location: /app/` | active |
 | SW-07 | `target: none` applies to this request only | `switch: { target: none }` | `GET /view?device_view=mobile` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)`, no `Location`, no `Vary` | planned |
-| SW-08 | Status 303 | `switch: { status: 303 }` | `GET /view?device_view=mobile` | 303, `Location: /view` | planned |
-| SW-09 | Status 307 | `switch: { status: 307 }` | `GET /view?device_view=mobile` | 307, `Location: /view` | planned |
+| SW-08 | Status 303 | `switch: { status: 303 }` | `GET /view?device_view=mobile` | 303, `Location: /view` | active |
+| SW-09 | Status 307 | `switch: { status: 307 }` | `GET /view?device_view=mobile` | 307, `Location: /view` | active |
 | SW-10 | Custom parameter | `switch: { parameter: view }` | `GET /view?view=tablet` | 302, `Location: /view`, `Set-Cookie: SC(tablet)` | planned |
-| SW-11 | Custom parameter: the default name is ignored | `switch: { parameter: view }` | `GET /view?device_view=tablet` | 200 `"desktop detector"`, no `Set-Cookie` | planned |
-| SW-12 | POST is not switched | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | planned |
+| SW-11 | Custom parameter: the default name is ignored | `switch: { parameter: view }` | `GET /view?device_view=tablet` | 200 `"desktop detector"`, no `Set-Cookie` | active |
+| SW-12 | POST is not switched | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
 | SW-13 | HEAD is switched | — | `HEAD /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | planned |
 | SW-14 | `redirect.methods` also governs the switch | `redirect: { methods: [GET, POST] }` | `POST /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | planned |
 | SW-15 | `cache_control: null` sets nothing; the cookie makes the redirect private | `redirect: { cache_control: null }` | `GET /view?device_view=mobile` | 302, `Set-Cookie: SC(mobile)`, `Cache-Control: private` (Symfony's computed `no-cache, private` is not a stored directive, so the `private_when_remembering` step leaves `private` only) | planned |
-| SW-16 | Custom `cache_control` | `redirect: { cache_control: 'no-cache, no-store, must-revalidate' }` | `GET /view?device_view=mobile` | 302, `Cache-Control: must-revalidate, no-cache, no-store, private` (Symfony sorts the directives and adds `private`) | planned |
+| SW-16 | Custom `cache_control` | `redirect: { cache_control: 'no-cache, no-store, must-revalidate' }` | `GET /view?device_view=mobile` | 302, `Cache-Control: must-revalidate, no-cache, no-store, private` (Symfony sorts the directives and adds `private`) | active |
 | SW-17 | Switch to a view served by another host | `M` | `GET http://www.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: https://m.example.com/blog/post?a=1&device_view=mobile`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)` | planned |
 | SW-18 | Switch arriving on the target host | `M` | `GET https://m.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: /blog/post?a=1`, `Set-Cookie: SCS(mobile)` | planned |
 | SW-19 | Switch back to desktop from the mobile host | `M`, `D` | `GET https://m.example.com/blog/post?device_view=desktop`, `UA=iphone` | 302, `Location: https://www.example.com/blog/post?device_view=desktop`, `Set-Cookie: SCS(desktop)` | planned |
 | SW-20 | The redirected view's host equals the current host | `M` | `GET https://m.example.com/view?device_view=mobile` | 302, relative `Location: /view` | planned |
 | SW-21 | A switch to the stored view is written again | — | `GET /view?device_view=mobile`, `Cookie: device_view=mobile` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | planned |
-| SW-22 | Sub-requests never switch | — | `GET /with-sub-request?sub=%2Fview%3Fdevice_view%3Dtablet`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Set-Cookie`, no `Location` | planned |
+| SW-22 | Sub-requests never switch | — | `GET /with-sub-request?sub=%2Fview%3Fdevice_view%3Dtablet`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Set-Cookie`, no `Location` | active |
 
 ## 6. Remember decision table (REM), design.md section 7
 
@@ -771,11 +771,11 @@ The kernel runs with `debug: true`, TwigBundle, WebProfilerBundle and
 | FAC-04 | `setView()` outside a request | — | empty `RequestStack` | no exception; debug log `Ignored DeviceView::setView(): there is no request.` | active |
 | FAC-05 | Unknown view name | — | `setView('phone')` and `is('phone')` in a controller | `InvalidArgumentException`, message `Unknown device view "phone". Expected one of: mobile, tablet, desktop.` | active |
 | FAC-06 | Changes after the response is built | a `kernel.response` listener at priority -10 calling `setView('mobile', true)`, `setRemember(true)` and `setConsent(true)` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"`, no `Set-Cookie`; debug log `Ignored a device view change made after the response was built.` | planned |
-| FAC-07 | `getSwitchUrl()` | — | `GET /view?a=1`; `getSwitchUrl('mobile')`, `getSwitchUrl(DeviceType::Tablet, 'home')` | `/view?a=1&device_view=mobile`, `/?device_view=tablet` | planned |
-| FAC-08 | `getSwitchUrl()` keeps the base URL | — | front controller `/app`: `GET http://localhost/app/view`; same calls | `/app/view?device_view=mobile`, `/app/?device_view=tablet` | planned |
-| FAC-09 | `getSwitchUrl()` uses the parameter and names | `switch: { parameter: view }`, `views: { names: { mobile: m } }` | `GET /view`; `getSwitchUrl('m')` | `/view?view=m` | planned |
-| FAC-10 | `getSwitchUrl()` outside a request | — | empty `RequestStack`; `getSwitchUrl('mobile')` | `/?device_view=mobile` | planned |
-| FAC-11 | Unknown switch target | — | `getSwitchUrl('mobile', 'back')` called twice: in a controller during `GET /view`, and with an empty `RequestStack` | both calls throw `InvalidArgumentException`, message `Unknown switch target "back". Expected "current" or "home".` | planned |
+| FAC-07 | `getSwitchUrl()` | — | `GET /view?a=1`; `getSwitchUrl('mobile')`, `getSwitchUrl(DeviceType::Tablet, 'home')` | `/view?a=1&device_view=mobile`, `/?device_view=tablet` | active |
+| FAC-08 | `getSwitchUrl()` keeps the base URL | — | front controller `/app`: `GET http://localhost/app/view`; same calls | `/app/view?device_view=mobile`, `/app/?device_view=tablet` | active |
+| FAC-09 | `getSwitchUrl()` uses the parameter and names | `switch: { parameter: view }`, `views: { names: { mobile: m } }` | `GET /view`; `getSwitchUrl('m')` | `/view?view=m` | active |
+| FAC-10 | `getSwitchUrl()` outside a request | — | empty `RequestStack`; `getSwitchUrl('mobile')` | `/?device_view=mobile` | active |
+| FAC-11 | Unknown switch target | — | `getSwitchUrl('mobile', 'back')` called twice: in a controller during `GET /view`, and with an empty `RequestStack` | both calls throw `InvalidArgumentException`, message `Unknown switch target "back". Expected "current" or "home".` | active |
 | FAC-12 | `setView()` after a read | — | in a controller, `UA=iphone`: read, then `setView('tablet')`, then read | `mobile`, then `tablet` with source Forced; `Vary: [Cookie, User-Agent]` (inputs already consulted stay) | planned |
 | FAC-13 | Sub-requests see the main view | — | `GET /with-sub-request`, `UA=iphone` | the sub-request controller's `getView()` is Mobile | active |
 | FAC-14 | Autowiring | — | container | `DeviceView::class` is an alias of `device_view.device_view` | active |
@@ -813,9 +813,9 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-14 | Matomo cache pool interface | `detector: { id: matomo, matomo: { cache_pool: app.not_a_cache } }` | container build | message contains `The service "app.not_a_cache" set in device_view.detector.matomo.cache_pool must implement Psr\Cache\CacheItemPoolInterface.` | planned |
 | CFG-15 | `phablet_as` enum | `detector: { matomo: { phablet_as: desktop } }` | container build | message contains `The value "desktop" is not allowed for path "device_view.detector.matomo.phablet_as"` | planned |
 | CFG-16 | `static.view` enum | `detector: { static: { view: phone } }` | container build | message contains `The value "phone" is not allowed for path "device_view.detector.static.view"` | planned |
-| CFG-17 | `switch.target` enum | `switch: { target: back }` | container build | message contains `The value "back" is not allowed for path "device_view.switch.target"` | planned |
-| CFG-18 | `switch.status` set | `switch: { status: 301 }` | container build | message contains `The value 301 is not allowed for path "device_view.switch.status"` | planned |
-| CFG-19 | `switch.parameter` not empty | `switch: { parameter: '' }` | container build | message contains `The path "device_view.switch.parameter" cannot contain an empty value` | planned |
+| CFG-17 | `switch.target` enum | `switch: { target: back }` | container build | message contains `The value "back" is not allowed for path "device_view.switch.target"` | active |
+| CFG-18 | `switch.status` set | `switch: { status: 301 }` | container build | message contains `The value 301 is not allowed for path "device_view.switch.status"` | active |
+| CFG-19 | `switch.parameter` not empty | `switch: { parameter: '' }` | container build | message contains `The path "device_view.switch.parameter" cannot contain an empty value` | active |
 | CFG-20 | `remember.storage` service | `remember: { storage: app.not_a_storage }` | container build | message contains `The service "app.not_a_storage" set in device_view.remember.storage must implement DeviceViewBundle\Remember\ViewStorageInterface.` | planned |
 | CFG-21 | Negative lifetime | `remember: { lifetime: -1 }` | container build | message contains `The value -1 is too small for path "device_view.remember.lifetime"` | planned |
 | CFG-22 | `consented_lifetime` below `lifetime` | `remember: { lifetime: 3600, consented_lifetime: 60 }` | container build | message contains `device_view.remember.consented_lifetime (60) must be greater than or equal to device_view.remember.lifetime (3600).` | planned |
@@ -838,7 +838,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-39 | Host from an env var is checked at runtime only | `redirect: { mobile: { enabled: true, host: '%env(DV_MOBILE_HOST)%' } }` | container build | builds (see RED-26 and RED-27) | planned |
 | CFG-40 | Redirect action enum | `redirect: { mobile: { action: back } }` | container build | message contains `The value "back" is not allowed for path "device_view.redirect.mobile.action"` | planned |
 | CFG-41 | Device redirect status set | `redirect: { mobile: { status: 304 } }` | container build | message contains `The value 304 is not allowed for path "device_view.redirect.mobile.status"` | planned |
-| CFG-42 | Redirect methods not empty | `redirect: { methods: [] }` | container build | message contains `device_view.redirect.methods must list at least one method.` | planned |
+| CFG-42 | Redirect methods not empty | `redirect: { methods: [] }` | container build | message contains `device_view.redirect.methods must list at least one method.` | active |
 | CFG-43 | Skip path regex | `skip: { paths: ['^/(api'] }` | container build | message contains `device_view.skip.paths contains an invalid regular expression: "^/(api".` | planned |
 | CFG-44 | Trusted header name | `trusted_header: { name: 'X Device' }` | container build | message contains `device_view.trusted_header.name "X Device" is not a valid header name.` | planned |
 | CFG-45 | Twig prefix | `twig: { prefix: 'dv-' }` | container build | message contains `device_view.twig.prefix "dv-" must be empty or match ^[a-z_][a-z0-9_]*$.` | planned |

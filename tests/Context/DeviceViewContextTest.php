@@ -7,8 +7,11 @@ namespace DeviceViewBundle\Tests\Context;
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Resolver\ResolvedView;
 use DeviceViewBundle\Tests\App\Resolver\RecordingResolver;
+use DeviceViewBundle\Tests\App\TestLogger;
 use DeviceViewBundle\View\DeviceType;
+use DeviceViewBundle\View\ViewNames;
 use DeviceViewBundle\View\ViewSource;
+use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -22,6 +25,41 @@ final class DeviceViewContextTest extends TestCase
         self::assertNull($context->forcedView);
         self::assertSame([], $context->consultedInputs);
         self::assertFalse($context->skipped);
+        self::assertNull($context->switchView);
+        self::assertFalse($context->switched);
+    }
+
+    public function testTheSwitchParameterIsReadOnce(): void
+    {
+        $context = new DeviceViewContext();
+        $logger = new TestLogger();
+        $parameter = new SwitchParameter(new ViewNames(), logger: $logger);
+        $request = Request::create('/?device_view=phone');
+
+        self::assertNull($context->readSwitch($parameter, $request));
+        self::assertNull($context->readSwitch($parameter, Request::create('/?device_view=mobile')));
+        self::assertNull($context->switchView);
+        self::assertCount(1, $logger->records, 'an invalid token is logged once per request');
+    }
+
+    public function testAValidSwitchIsKept(): void
+    {
+        $context = new DeviceViewContext();
+        $parameter = new SwitchParameter(new ViewNames());
+
+        self::assertSame(DeviceType::Tablet, $context->readSwitch($parameter, Request::create('/?device_view=tablet')));
+        self::assertSame(DeviceType::Tablet, $context->readSwitch($parameter, Request::create('/')));
+        self::assertSame(DeviceType::Tablet, $context->switchView);
+        self::assertFalse($context->switched, 'reading the parameter does not apply the switch');
+    }
+
+    public function testMarkingTheSwitchRecordsIt(): void
+    {
+        $context = new DeviceViewContext();
+
+        $context->markSwitched();
+
+        self::assertTrue($context->switched);
     }
 
     public function testTheViewIsResolvedOnce(): void

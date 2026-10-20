@@ -170,6 +170,12 @@ final class Kernel extends BaseKernel
             ->tag('controller.service_arguments')
         ;
         $services
+            ->set(ControllerCall::class)
+            ->public()
+            ->args([new Reference(DeviceView::class)])
+            ->tag('kernel.event_listener', ['event' => KernelEvents::CONTROLLER, 'method' => 'onKernelController'])
+        ;
+        $services
             ->set(RequestRecorder::class)
             ->public()
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => -1000])
