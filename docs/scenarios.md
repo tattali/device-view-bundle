@@ -505,16 +505,16 @@ the value PHP gives after decoding the cookie.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-OT-01 | Granted | `onetrust` | `Cookie: OptanonConsent=<OT groups=C0001:1,C0002:0,C0003:1,C0004:0>` | `hasConsent` true | planned |
-| CON-OT-02 | Denied | `onetrust` | `Cookie: OptanonConsent=<OT groups=C0001:1,C0002:0,C0003:0,C0004:0>` | `hasConsent` false | planned |
-| CON-OT-03 | Group absent | `onetrust` | `Cookie: OptanonConsent=<OT groups=C0001:1,C0002:1>` | `hasConsent` null | planned |
-| CON-OT-04 | No `groups` parameter | `onetrust` | `Cookie: OptanonConsent=isGpcEnabled=0&interactionCount=0` | `hasConsent` null | planned |
-| CON-OT-05 | No cookie | `onetrust` | no cookie | `hasConsent` null | planned |
-| CON-OT-06 | Value still URL-encoded | `onetrust` | `Cookie: OptanonConsent=isGpcEnabled%3D0%26groups%3DC0001%253A1%252CC0003%253A1` | `hasConsent` true | planned |
-| CON-OT-07 | Garbage | `onetrust` | `Cookie: OptanonConsent=%%%` | `hasConsent` null | planned |
-| CON-OT-08 | Array cookie | `onetrust` | cookie `OptanonConsent` = `['groups' => 'C0003:1']` | `hasConsent` null, no error | planned |
-| CON-OT-09 | Custom key | `consent: { provider: onetrust, key: C0002 }` | the CON-OT-01 value | `hasConsent` false | planned |
-| CON-OT-10 | Custom cookie name | `consent: { provider: onetrust, cookie: OptanonConsentSite }` | `Cookie: OptanonConsentSite=<OT groups=C0003:1>` | `hasConsent` true | planned |
+| CON-OT-01 | Granted | `onetrust` | `Cookie: OptanonConsent=<OT groups=C0001:1,C0002:0,C0003:1,C0004:0>` | `hasConsent` true | active |
+| CON-OT-02 | Denied | `onetrust` | `Cookie: OptanonConsent=<OT groups=C0001:1,C0002:0,C0003:0,C0004:0>` | `hasConsent` false | active |
+| CON-OT-03 | Group absent | `onetrust` | `Cookie: OptanonConsent=<OT groups=C0001:1,C0002:1>` | `hasConsent` null | active |
+| CON-OT-04 | No `groups` parameter | `onetrust` | `Cookie: OptanonConsent=isGpcEnabled=0&interactionCount=0` | `hasConsent` null | active |
+| CON-OT-05 | No cookie | `onetrust` | no cookie | `hasConsent` null | active |
+| CON-OT-06 | Value still URL-encoded | `onetrust` | `Cookie: OptanonConsent=isGpcEnabled%3D0%26groups%3DC0001%253A1%252CC0003%253A1` | `hasConsent` true | active |
+| CON-OT-07 | Garbage | `onetrust` | `Cookie: OptanonConsent=%%%` | `hasConsent` null | active |
+| CON-OT-08 | Array cookie | `onetrust` | cookie `OptanonConsent` = `['groups' => 'C0003:1']` | `hasConsent` null, no error | active |
+| CON-OT-09 | Custom key | `consent: { provider: onetrust, key: C0002 }` | the CON-OT-01 value | `hasConsent` false | active |
+| CON-OT-10 | Custom cookie name | `consent: { provider: onetrust, cookie: OptanonConsentSite }` | `Cookie: OptanonConsentSite=<OT groups=C0003:1>` | `hasConsent` true | active |
 
 ### Axeptio (CON-AX): cookie `axeptio_cookies`, key `device_view`
 
