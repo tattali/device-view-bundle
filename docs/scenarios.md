@@ -458,16 +458,16 @@ is false or null.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-KLA-01 | Granted | `klaro` | `Cookie: klaro={"device_view":true,"analytics":false}` | `hasConsent` true | planned |
-| CON-KLA-02 | Denied | `klaro` | `Cookie: klaro={"device_view":false}` | `hasConsent` false | planned |
-| CON-KLA-03 | Service absent | `klaro` | `Cookie: klaro={"analytics":true}` | `hasConsent` null | planned |
-| CON-KLA-04 | No cookie | `klaro` | no cookie | `hasConsent` null | planned |
-| CON-KLA-05 | URL-encoded once | `klaro` | `Cookie: klaro=%7B%22device_view%22%3Atrue%7D` | `hasConsent` true | planned |
-| CON-KLA-06 | URL-encoded twice | `klaro` | `Cookie: klaro=%257B%2522device_view%2522%253Atrue%257D` | `hasConsent` true | planned |
-| CON-KLA-07 | Not a boolean | `klaro` | `Cookie: klaro={"device_view":"yes"}` | `hasConsent` null | planned |
-| CON-KLA-08 | Garbage | `klaro` | `Cookie: klaro=not-json` | `hasConsent` null | planned |
-| CON-KLA-09 | Array cookie | `klaro` | cookie `klaro` = `['device_view' => '1']` | `hasConsent` null, no error | planned |
-| CON-KLA-10 | Custom cookie name and key | `consent: { provider: klaro, cookie: klaro-consent, key: views }` | `Cookie: klaro-consent={"views":true}` | `hasConsent` true | planned |
+| CON-KLA-01 | Granted | `klaro` | `Cookie: klaro={"device_view":true,"analytics":false}` | `hasConsent` true | active |
+| CON-KLA-02 | Denied | `klaro` | `Cookie: klaro={"device_view":false}` | `hasConsent` false | active |
+| CON-KLA-03 | Service absent | `klaro` | `Cookie: klaro={"analytics":true}` | `hasConsent` null | active |
+| CON-KLA-04 | No cookie | `klaro` | no cookie | `hasConsent` null | active |
+| CON-KLA-05 | URL-encoded once | `klaro` | `Cookie: klaro=%7B%22device_view%22%3Atrue%7D` | `hasConsent` true | active |
+| CON-KLA-06 | URL-encoded twice | `klaro` | `Cookie: klaro=%257B%2522device_view%2522%253Atrue%257D` | `hasConsent` true | active |
+| CON-KLA-07 | Not a boolean | `klaro` | `Cookie: klaro={"device_view":"yes"}` | `hasConsent` null | active |
+| CON-KLA-08 | Garbage | `klaro` | `Cookie: klaro=not-json` | `hasConsent` null | active |
+| CON-KLA-09 | Array cookie | `klaro` | cookie `klaro` = `['device_view' => '1']` | `hasConsent` null, no error | active |
+| CON-KLA-10 | Custom cookie name and key | `consent: { provider: klaro, cookie: klaro-consent, key: views }` | `Cookie: klaro-consent={"views":true}` | `hasConsent` true | active |
 
 ### Complianz (CON-CMP): cookie prefix `cmplz_`, key `preferences`
 

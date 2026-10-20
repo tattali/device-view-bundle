@@ -1,0 +1,5 @@
+# source: ConsentManager.saveConsents() and loadConsents() in src/consent-manager.js of Klaro 0.7.21 (npm klaro 0.7.21, lines 132-164): the cookie value is encodeURIComponent(JSON.stringify(consents)), consents mapping each service name to true or false; CookieStore in src/stores.js writes it with document.cookie under storageName, "klaro" by default (consent-manager.js line 41)
+# captured: local run of dist/klaro.js of npm klaro 0.7.21 (sha256 051b44f5c18f7f5ca70550212d3c03b7d50ef3f4212a611aa0d97438f5b901f1) in headless Chrome on a page served from 127.0.0.1 (capture.html in this directory), service analytics only; clicked the notice's accept button
+# date: 2026-10-20
+# hasConsent: null
+Cookie: klaro=%7B%22analytics%22%3Atrue%7D
