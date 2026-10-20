@@ -199,7 +199,7 @@ final class DeviceViewBundle extends AbstractBundle
             return null;
         }
 
-        $builder->getDefinition($id)->setArguments(['$cookie' => $cookie, '$key' => $key]);
+        $builder->getDefinition($id)->setArgument('$cookie', $cookie)->setArgument('$key', $key);
 
         return $id;
     }
