@@ -12,6 +12,10 @@ use DeviceViewBundle\View\ViewSource;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * The DeviceView facade, through the kernel.
@@ -162,6 +166,130 @@ final class DeviceViewFacadeTest extends TestCase
         self::assertSame('t forced', $this->handle(self::request('/set-view/t'))->getContent());
     }
 
+    #[Group('FAC-07')]
+    public function testGetSwitchUrl(): void
+    {
+        $this->boot();
+
+        self::assertSame(
+            ['/view?a=1&device_view=mobile', '/?device_view=tablet'],
+            $this->duringRequest(self::request('/view?a=1'), static fn (DeviceView $deviceView): array => [
+                $deviceView->getSwitchUrl('mobile'),
+                $deviceView->getSwitchUrl(DeviceType::Tablet, 'home'),
+            ]),
+        );
+    }
+
+    #[Group('FAC-08')]
+    public function testGetSwitchUrlKeepsTheBaseUrl(): void
+    {
+        $this->boot();
+        $request = Request::create('http://localhost/app/view', server: ['SCRIPT_NAME' => '/app/index.php', 'SCRIPT_FILENAME' => '/srv/app/index.php']);
+
+        self::assertSame(
+            ['/app/view?device_view=mobile', '/app/?device_view=tablet'],
+            $this->duringRequest($request, static fn (DeviceView $deviceView): array => [
+                $deviceView->getSwitchUrl('mobile'),
+                $deviceView->getSwitchUrl(DeviceType::Tablet, 'home'),
+            ]),
+        );
+    }
+
+    #[Group('FAC-09')]
+    public function testGetSwitchUrlUsesTheParameterAndNames(): void
+    {
+        $this->boot(['switch' => ['parameter' => 'view'], 'views' => ['names' => ['mobile' => 'm']]]);
+
+        self::assertSame(
+            ['/view?view=m', '/view?view=m'],
+            $this->duringRequest(self::request('/view'), static fn (DeviceView $deviceView): array => [
+                $deviceView->getSwitchUrl('m'),
+                $deviceView->getSwitchUrl(DeviceType::Mobile),
+            ]),
+        );
+    }
+
+    public function testGetSwitchUrlReplacesTheSwitchParameterOfTheRequest(): void
+    {
+        $this->boot(['switch' => ['target' => 'none']]);
+
+        self::assertSame(
+            ['/view?a=1&b=2&device_view=desktop'],
+            $this->duringRequest(self::request('/view?a=1&device_view=mobile&b=2'), static fn (DeviceView $deviceView): array => [
+                $deviceView->getSwitchUrl('desktop'),
+            ]),
+        );
+    }
+
+    public function testGetSwitchUrlIsTheUrlOfTheMainRequest(): void
+    {
+        $this->boot();
+        $deviceView = $this->deviceView();
+        $stack = $this->service('request_stack');
+        self::assertInstanceOf(RequestStack::class, $stack);
+        $stack->push(Request::create('/view?a=1'));
+        $stack->push(Request::create('/fragment?b=2'));
+
+        try {
+            self::assertSame('/view?a=1&device_view=tablet', $deviceView->getSwitchUrl('tablet'));
+        } finally {
+            $stack->pop();
+            $stack->pop();
+        }
+    }
+
+    #[Group('FAC-10')]
+    public function testGetSwitchUrlOutsideARequest(): void
+    {
+        $this->boot();
+        $deviceView = $this->deviceView();
+
+        self::assertSame('/?device_view=mobile', $deviceView->getSwitchUrl('mobile'));
+        self::assertSame('/?device_view=tablet', $deviceView->getSwitchUrl(DeviceType::Tablet, 'home'));
+    }
+
+    #[Group('FAC-11')]
+    public function testUnknownSwitchTargetInARequest(): void
+    {
+        $this->boot();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown switch target "back". Expected "current" or "home".');
+
+        $this->duringRequest(self::request('/view'), static fn (DeviceView $deviceView): array => [$deviceView->getSwitchUrl('mobile', 'back')]);
+    }
+
+    #[Group('FAC-11')]
+    public function testUnknownSwitchTargetOutsideARequest(): void
+    {
+        $this->boot();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown switch target "back". Expected "current" or "home".');
+
+        $this->deviceView()->getSwitchUrl('mobile', 'back');
+    }
+
+    public function testTheSwitchTargetNoneIsNotAUrl(): void
+    {
+        $this->boot();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown switch target "none". Expected "current" or "home".');
+
+        $this->deviceView()->getSwitchUrl('mobile', 'none');
+    }
+
+    public function testGetSwitchUrlWithAnUnknownViewName(): void
+    {
+        $this->boot();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown device view "phone". Expected one of: mobile, tablet, desktop.');
+
+        $this->deviceView()->getSwitchUrl('phone');
+    }
+
     #[Group('FAC-14')]
     public function testAutowiring(): void
     {
@@ -169,6 +297,32 @@ final class DeviceViewFacadeTest extends TestCase
 
         self::assertInstanceOf(DeviceView::class, $this->service('test.device_view.device_view'));
         self::assertSame($this->service('test.device_view.device_view'), $this->service('test.device_view'));
+    }
+
+    /**
+     * Handles the request and calls the facade on kernel.controller, while the request is the
+     * main request on the stack, as a controller would.
+     *
+     * @param \Closure(DeviceView): list<string> $calls
+     *
+     * @return list<string> what $calls returned
+     */
+    private function duringRequest(Request $request, \Closure $calls): array
+    {
+        $deviceView = $this->deviceView();
+        $results = null;
+        $dispatcher = $this->service('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(KernelEvents::CONTROLLER, static function () use ($deviceView, $calls, &$results): void {
+            $results = $calls($deviceView);
+        });
+
+        $response = $this->handle($request, false);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertIsArray($results);
+
+        return $results;
     }
 
     private function deviceView(): DeviceView

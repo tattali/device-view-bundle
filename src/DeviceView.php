@@ -10,6 +10,8 @@ use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
 use DeviceViewBundle\View\ViewSource;
+use DeviceViewBundle\ViewSwitch\SwitchTarget;
+use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -30,6 +32,7 @@ final readonly class DeviceView
         private RequestStack $requestStack,
         private ViewResolverInterface $resolver,
         private ViewNames $names,
+        private SwitchUrlGenerator $switchUrls = new SwitchUrlGenerator(),
         private DeviceType $defaultView = DeviceType::Desktop,
         private ?LoggerInterface $logger = null,
     ) {
@@ -96,6 +99,26 @@ final readonly class DeviceView
         }
 
         $context->force($view);
+    }
+
+    /**
+     * The relative URL of a link that switches to the view: the current page with the switch
+     * parameter, or the home page. Outside a request it is the home page.
+     *
+     * @param DeviceType|string $view   a view, or one of the configured names
+     * @param string            $target "current" or "home"
+     *
+     * @throws \InvalidArgumentException when the name is not a configured name or the target is not "current" or "home"
+     */
+    public function getSwitchUrl(DeviceType|string $view, string $target = 'current'): string
+    {
+        $name = $this->names->nameOf($this->toView($view));
+        $switchTarget = SwitchTarget::tryFrom($target);
+        if (null === $switchTarget || SwitchTarget::None === $switchTarget) {
+            throw new \InvalidArgumentException(\sprintf('Unknown switch target "%s". Expected "current" or "home".', $target));
+        }
+
+        return $this->switchUrls->switchUrl($this->requestStack->getMainRequest(), $switchTarget, $name);
     }
 
     private function resolved(): ResolvedView
