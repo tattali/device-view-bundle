@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Functional;
 
 use DeviceViewBundle\Tests\App\Kernel;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
@@ -52,6 +53,21 @@ final class WorkerTest extends TestCase
         self::assertSame('desktop forced', $this->handle(self::request('/set-view/desktop', 'iphone'))->getContent());
         self::assertSame('mobile detector', $this->handle(self::request('/view', 'iphone'))->getContent());
         self::assertSame('tablet default', $this->handle(self::request('/view', 'empty'))->getContent());
+    }
+
+    #[Group('WRK-02')]
+    public function testAConsentOverrideDoesNotLeakToTheNextRequest(): void
+    {
+        $this->boot(['switch' => ['target' => 'none']]);
+
+        $first = $this->handle(self::request('/set-consent/1?device_view=tablet', 'iphone'));
+        $second = $this->handle(self::request('/view', 'iphone'));
+
+        self::assertSame('tablet switch', $first->getContent());
+        self::assertCount(1, $first->headers->getCookies(), 'the first request remembers its switch');
+        self::assertSame(200, $second->getStatusCode());
+        self::assertSame('mobile detector', $second->getContent());
+        self::assertSame([], $second->headers->getCookies());
     }
 
     public function testServerUserAgentChangesNothing(): void

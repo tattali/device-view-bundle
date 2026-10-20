@@ -272,6 +272,50 @@ return static function (DefinitionConfigurator $definition): void {
     ;
 
     $definition->rootNode()
+        ->validate()
+            ->ifTrue(static function (array $config): bool {
+                /** @var array{remember: array{storage: string}, consent: array{provider: string|null}} $config */
+                $consentWithoutStorage = 'none' === $config['remember']['storage'] && null !== $config['consent']['provider'];
+
+                return $consentWithoutStorage;
+            })
+            ->thenInvalid('device_view.consent.provider cannot be set when device_view.remember.storage is "none".')
+        ->end()
+        ->children()
+            ->arrayNode('consent')
+                ->info('Where the consent comes from that remembers the view for remember.consented_lifetime (design.md sections 7 and 8).')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->scalarNode('provider')
+                        ->info('null (no consent checker), the name of a built-in reader of a consent tool, such as tarteaucitron, or the id of a service implementing DeviceViewBundle\Consent\ConsentCheckerInterface.')
+                        ->defaultNull()
+                        ->validate()
+                            ->ifTrue(static fn (mixed $provider): bool => null !== $provider && (!is_string($provider) || '' === $provider))
+                            ->thenInvalid('device_view.consent.provider must be null, the name of a consent reader or a service id, got %s.')
+                        ->end()
+                    ->end()
+                    ->scalarNode('key')
+                        ->info('What the built-in reader checks in the consent tool: a service, category, group or purpose; null for the reader\'s default.')
+                        ->defaultNull()
+                        ->validate()
+                            ->ifTrue(static fn (mixed $key): bool => null !== $key && (!is_string($key) || '' === $key))
+                            ->thenInvalid('device_view.consent.key must be null or a non-empty string, got %s.')
+                        ->end()
+                    ->end()
+                    ->scalarNode('cookie')
+                        ->info('The name, or name prefix, of the consent tool\'s cookie the built-in reader reads; null for the reader\'s default.')
+                        ->defaultNull()
+                        ->validate()
+                            ->ifTrue(static fn (mixed $cookie): bool => null !== $cookie && (!is_string($cookie) || '' === $cookie))
+                            ->thenInvalid('device_view.consent.cookie must be null or a non-empty string, got %s.')
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
+        ->end()
+    ;
+
+    $definition->rootNode()
         ->children()
             ->arrayNode('services')
                 ->info('Replace a built-in service with the id of your own service.')

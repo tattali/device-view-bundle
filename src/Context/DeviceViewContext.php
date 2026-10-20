@@ -62,6 +62,12 @@ final class DeviceViewContext
     public private(set) ?bool $remember = null;
 
     /**
+     * The override set with DeviceView::setConsent(): true grants consent, false denies it, for
+     * this request; null when it was not called or was reset, so the consent checker answers.
+     */
+    public private(set) ?bool $consent = null;
+
+    /**
      * Whether the remember storage holds a string that is not a view name, which the response
      * expires.
      */
@@ -137,6 +143,11 @@ final class DeviceViewContext
     public function setRemember(bool $remember): void
     {
         $this->remember = $remember;
+    }
+
+    public function setConsent(?bool $consent): void
+    {
+        $this->consent = $consent;
     }
 
     /**

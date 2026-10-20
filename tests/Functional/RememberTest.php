@@ -6,6 +6,7 @@ namespace DeviceViewBundle\Tests\Functional;
 
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\DeviceView;
+use DeviceViewBundle\Tests\App\Consent\CountingConsentChecker;
 use DeviceViewBundle\Tests\App\ResponseCall;
 use DeviceViewBundle\Tests\App\TestLogger;
 use PHPUnit\Framework\Attributes\Group;
@@ -16,11 +17,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Remembering the view in the cookie storage, through the kernel: the remembered view as a source
- * of the resolution, the decision table of design.md section 7 without a consent provider, and
- * the expiry of a forged stored value.
+ * of the resolution, the decision table of design.md section 7, and the expiry of a forged stored
+ * value.
  *
- * Rows that also expect a Vary header or need a consent provider stay planned; the tests without
- * a group check the rest of them.
+ * Rows that also expect a Vary header stay planned; the tests without a group check the rest of
+ * them. Consent rows use tarteaucitron (TAC in docs/scenarios.md).
  */
 final class RememberTest extends TestCase
 {
@@ -28,6 +29,12 @@ final class RememberTest extends TestCase
     use HandlesRequests;
 
     private const string INVALID_STORED = 'Ignored an invalid device view from the remember storage.';
+
+    private const array TAC = ['consent' => ['provider' => 'tarteaucitron']];
+
+    private const array GRANTED = ['tarteaucitron' => '!device_view=true'];
+
+    private const array DENIED = ['tarteaucitron' => '!device_view=false'];
 
     #[Group('REM-04')]
     public function testASwitchIsRememberedForTheBrowserSession(): void
@@ -418,9 +425,7 @@ final class RememberTest extends TestCase
         self::assertSetCookie(self::sc('mobile'), $response);
     }
 
-    /**
-     * FAC-06 also calls DeviceView::setConsent(), which comes with the consent checker.
-     */
+    #[Group('FAC-06')]
     public function testChangesAfterTheResponseIsBuiltAreIgnored(): void
     {
         $this->boot(services: ['logger' => TestLogger::class]);
@@ -429,13 +434,202 @@ final class RememberTest extends TestCase
         $call->calls = static function (DeviceView $deviceView): void {
             $deviceView->setView('mobile', true);
             $deviceView->setRemember(true);
+            $deviceView->setConsent(true);
         };
 
         self::assertPage('desktop detector', $this->handle(self::request('/view')));
         self::assertSame([
             'Ignored a device view change made after the response was built.',
             'Ignored a device view change made after the response was built.',
+            'Ignored a device view change made after the response was built.',
         ], $this->logger()->messages(LogLevel::DEBUG));
+    }
+
+    #[Group('REM-01')]
+    public function testASwitchWithConsentIsRememberedForTheConsentedLifetime(): void
+    {
+        $this->boot(self::TAC);
+
+        $response = $this->handle(self::request('/view?device_view=mobile', cookies: self::GRANTED));
+
+        self::assertRedirect('/view', $response);
+        self::assertSetCookie(self::sc('mobile', 31536000), $response);
+    }
+
+    #[Group('REM-02')]
+    public function testASwitchWithConsentDeniedIsRememberedForTheBrowserSession(): void
+    {
+        $this->boot(self::TAC);
+
+        $response = $this->handle(self::request('/view?device_view=mobile', cookies: self::DENIED));
+
+        self::assertRedirect('/view', $response);
+        self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
+    #[Group('REM-03')]
+    public function testASwitchWithConsentUnknownIsRememberedForTheBrowserSession(): void
+    {
+        $this->boot(self::TAC);
+
+        $response = $this->handle(self::request('/view?device_view=mobile'));
+
+        self::assertRedirect('/view', $response);
+        self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
+    public function testASwitchWithConsentDeniedIsRememberedForTheLifetime(): void
+    {
+        $this->boot(self::TAC + ['remember' => ['lifetime' => 3600]]);
+
+        self::assertSetCookie(self::sc('mobile', 3600), $this->handle(self::request('/view?device_view=mobile', cookies: self::DENIED)));
+    }
+
+    #[Group('REM-06')]
+    public function testOnSwitchFalseRemembersNoSwitchEvenWithConsent(): void
+    {
+        $this->boot(self::TAC + ['remember' => ['on_switch' => false]]);
+
+        $response = $this->handle(self::request('/view?device_view=mobile', cookies: self::GRANTED));
+
+        self::assertRedirect('/view', $response);
+        self::assertNoCookie($response);
+    }
+
+    #[Group('REM-07')]
+    public function testADetectedViewIsNotRememberedByDefaultEvenWithConsent(): void
+    {
+        $this->boot(self::TAC);
+
+        self::assertPage('mobile detector', $this->handle(self::request('/view', 'iphone', cookies: self::GRANTED)));
+    }
+
+    #[Group('REM-10')]
+    public function testADetectedViewWithConsentIsRememberedForTheConsentedLifetime(): void
+    {
+        $this->boot(self::TAC + ['remember' => ['detected_view' => true]]);
+
+        $response = $this->handle(self::request('/view', 'iphone', cookies: self::GRANTED));
+
+        self::assertSame('mobile detector', $response->getContent());
+        self::assertSetCookie(self::sc('mobile', 31536000), $response);
+    }
+
+    #[Group('REM-11')]
+    public function testADetectedViewWithConsentDeniedIsNotRemembered(): void
+    {
+        $this->boot(self::TAC + ['remember' => ['detected_view' => true]]);
+
+        self::assertPage('mobile detector', $this->handle(self::request('/view', 'iphone', cookies: self::DENIED)));
+    }
+
+    #[Group('REM-12')]
+    public function testADetectedViewWithConsentUnknownIsNotRemembered(): void
+    {
+        $this->boot(self::TAC + ['remember' => ['detected_view' => true]]);
+
+        self::assertPage('mobile detector', $this->handle(self::request('/view', 'iphone')));
+    }
+
+    #[Group('REM-19')]
+    public function testSetViewWithRememberAndConsentIsRememberedForTheConsentedLifetime(): void
+    {
+        $this->boot(self::TAC);
+
+        $response = $this->handle(self::request('/set-view/tablet?remember=1', cookies: self::GRANTED));
+
+        self::assertSame('tablet forced', $response->getContent());
+        self::assertSetCookie(self::sc('tablet', 31536000), $response);
+    }
+
+    #[Group('REM-21')]
+    public function testSetConsentTrueOverridesADeniedChecker(): void
+    {
+        $this->boot(self::TAC + ['switch' => ['target' => 'none']]);
+
+        $response = $this->handle(self::request('/set-consent/1?device_view=mobile', cookies: self::DENIED));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('mobile switch', $response->getContent());
+        self::assertSetCookie(self::sc('mobile', 31536000), $response);
+    }
+
+    #[Group('REM-22')]
+    public function testSetConsentFalseOverridesAGrantedChecker(): void
+    {
+        $this->boot(self::TAC + ['switch' => ['target' => 'none']]);
+
+        $response = $this->handle(self::request('/set-consent/0?device_view=mobile', cookies: self::GRANTED));
+
+        self::assertSame('mobile switch', $response->getContent());
+        self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
+    #[Group('REM-23')]
+    public function testSetConsentTrueWithoutProvider(): void
+    {
+        $this->boot(['switch' => ['target' => 'none']]);
+
+        $response = $this->handle(self::request('/set-consent/1?device_view=mobile'));
+
+        self::assertSame('mobile switch', $response->getContent());
+        self::assertSetCookie(self::sc('mobile', 31536000), $response);
+    }
+
+    #[Group('REM-24')]
+    public function testSetConsentNullRestoresTheChecker(): void
+    {
+        $this->boot(self::TAC + ['switch' => ['target' => 'none']]);
+
+        $response = $this->handle(self::request('/set-consent/null?device_view=mobile', cookies: self::GRANTED));
+
+        self::assertSame('mobile switch', $response->getContent());
+        self::assertSetCookie(self::sc('mobile', 31536000), $response);
+    }
+
+    public function testSetConsentFalseDoesNotStopADetectedWriteWithoutProvider(): void
+    {
+        $this->boot(['remember' => ['detected_view' => true]]);
+
+        $response = $this->handle(self::request('/set-consent/0', 'iphone'));
+
+        self::assertSame('mobile detector', $response->getContent());
+        self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
+    public function testSetConsentTrueLetsADetectedViewBeRememberedWithAProvider(): void
+    {
+        $this->boot(self::TAC + ['remember' => ['detected_view' => true]]);
+
+        $response = $this->handle(self::request('/set-consent/1', 'iphone', cookies: self::DENIED));
+
+        self::assertSame('mobile detector', $response->getContent());
+        self::assertSetCookie(self::sc('mobile', 31536000), $response);
+    }
+
+    #[Group('REM-25')]
+    public function testACustomConsentedLifetime(): void
+    {
+        $this->boot(self::TAC + ['remember' => ['consented_lifetime' => 15552000]]);
+
+        $response = $this->handle(self::request('/view?device_view=mobile', cookies: self::GRANTED));
+
+        self::assertRedirect('/view', $response);
+        self::assertSetCookie(self::sc('mobile', 15552000), $response);
+    }
+
+    #[Group('REM-26')]
+    public function testTheCheckerIsAskedOnlyWhenAWriteIsPlanned(): void
+    {
+        $this->boot(self::TAC, decorators: ['app.counting_consent' => [CountingConsentChecker::class, 'device_view.consent_checker']]);
+        $checker = $this->service('app.counting_consent');
+        self::assertInstanceOf(CountingConsentChecker::class, $checker);
+
+        self::assertPage('mobile detector', $this->handle(self::request('/view', 'iphone', cookies: self::GRANTED)));
+        self::assertSame(0, $checker->calls);
+
+        self::assertSetCookie(self::sc('mobile', 31536000), $this->handle(self::request('/view?device_view=mobile', cookies: self::GRANTED)));
+        self::assertSame(1, $checker->calls, 'a switch asks once');
     }
 
     public function testARememberDoesNotLeakToTheNextRequest(): void

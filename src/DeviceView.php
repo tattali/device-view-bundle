@@ -105,6 +105,16 @@ final readonly class DeviceView
     }
 
     /**
+     * Overrides the consent checker for the current request: true grants consent, false denies
+     * it, null gives the answer back to the checker. Granted consent remembers the view for
+     * remember.consented_lifetime, even without a consent provider.
+     */
+    public function setConsent(?bool $consent): void
+    {
+        $this->changeableContext('setConsent')?->setConsent($consent);
+    }
+
+    /**
      * The relative URL of a link that switches to the view: the current page with the switch
      * parameter, or the home page. Outside a request it is the home page.
      *

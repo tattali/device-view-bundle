@@ -328,32 +328,32 @@ denied is `Cookie: tarteaucitron=!device_view=false`, unknown is no consent cook
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| REM-01 | Switch, `on_switch: true`, consent granted | `TAC` | switch, granted | `Set-Cookie: SC(mobile, 31536000)` | planned |
-| REM-02 | Switch, `on_switch: true`, consent denied | `TAC` | switch, denied | `Set-Cookie: SC(mobile)` | planned |
-| REM-03 | Switch, `on_switch: true`, consent unknown | `TAC` | switch, unknown | `Set-Cookie: SC(mobile)` | planned |
+| REM-01 | Switch, `on_switch: true`, consent granted | `TAC` | switch, granted | `Set-Cookie: SC(mobile, 31536000)` | active |
+| REM-02 | Switch, `on_switch: true`, consent denied | `TAC` | switch, denied | `Set-Cookie: SC(mobile)` | active |
+| REM-03 | Switch, `on_switch: true`, consent unknown | `TAC` | switch, unknown | `Set-Cookie: SC(mobile)` | active |
 | REM-04 | Switch, `on_switch: true`, no provider | — | switch | `Set-Cookie: SC(mobile)` | active |
 | REM-05 | Switch, no provider, `lifetime` set | `remember: { lifetime: 3600 }` | switch | `Set-Cookie: SC(mobile, 3600)` | active |
-| REM-06 | Switch, `on_switch: false` | `TAC`, `remember: { on_switch: false }` | switch, granted | no `Set-Cookie` | planned |
-| REM-07 | Detected, `detected_view: false` | `TAC` | detected, granted | no `Set-Cookie` | planned |
+| REM-06 | Switch, `on_switch: false` | `TAC`, `remember: { on_switch: false }` | switch, granted | no `Set-Cookie` | active |
+| REM-07 | Detected, `detected_view: false` | `TAC` | detected, granted | no `Set-Cookie` | active |
 | REM-08 | Detected, `detected_view: true`, no provider | `remember: { detected_view: true }` | detected | `Set-Cookie: SC(mobile)` | active |
 | REM-09 | Detected, `detected_view: true`, no provider, persistent lifetime | `remember: { detected_view: true, lifetime: 31536000 }` | detected | `Set-Cookie: SC(mobile, 31536000)` | active |
-| REM-10 | Detected, `detected_view: true`, provider, granted | `TAC`, `remember: { detected_view: true }` | detected, granted | `Set-Cookie: SC(mobile, 31536000)` | planned |
-| REM-11 | Detected, `detected_view: true`, provider, denied | `TAC`, `remember: { detected_view: true }` | detected, denied | no `Set-Cookie` | planned |
-| REM-12 | Detected, `detected_view: true`, provider, unknown | `TAC`, `remember: { detected_view: true }` | detected, unknown | no `Set-Cookie` | planned |
+| REM-10 | Detected, `detected_view: true`, provider, granted | `TAC`, `remember: { detected_view: true }` | detected, granted | `Set-Cookie: SC(mobile, 31536000)` | active |
+| REM-11 | Detected, `detected_view: true`, provider, denied | `TAC`, `remember: { detected_view: true }` | detected, denied | no `Set-Cookie` | active |
+| REM-12 | Detected, `detected_view: true`, provider, unknown | `TAC`, `remember: { detected_view: true }` | detected, unknown | no `Set-Cookie` | active |
 | REM-13 | A remembered view is not written again | `remember: { detected_view: true }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"mobile remembered"`, no `Set-Cookie` | active |
 | REM-14 | Nothing is written when the view is not used | `remember: { detected_view: true }` | `GET /`, `UA=iphone` | 200 `"home page"`, no `Set-Cookie` | active |
 | REM-15 | `default_view` is not a detected view | `remember: { detected_view: true }` | `GET /view`, `UA=empty` | 200 `"desktop default"`, no `Set-Cookie` | active |
 | REM-16 | A trusted header view counts as detected | `TH`, `remember: { detected_view: true }` | `GET /view`, `X-Device-View: tablet` | 200 `"tablet trusted_header"`, `Set-Cookie: SC(tablet)` | planned |
 | REM-17 | `setRemember(false)` stops a write | `switch: { target: none }` | `GET /set-remember-off?device_view=mobile` | 200 `"mobile switch"`, no `Set-Cookie` | active |
 | REM-18 | `setView($view, true)` writes like a switch | — | `GET /set-view/tablet?remember=1` | 200 `"tablet forced"`, `Set-Cookie: SC(tablet)` | active |
-| REM-19 | `setView($view, true)` with consent granted | `TAC` | `GET /set-view/tablet?remember=1`, granted | `Set-Cookie: SC(tablet, 31536000)` | planned |
+| REM-19 | `setView($view, true)` with consent granted | `TAC` | `GET /set-view/tablet?remember=1`, granted | `Set-Cookie: SC(tablet, 31536000)` | active |
 | REM-20 | `setView($view)` does not write | — | `GET /set-view/tablet` | 200 `"tablet forced"`, no `Set-Cookie` | active |
-| REM-21 | `setConsent(true)` overrides a denied checker | `TAC`, `switch: { target: none }` | `GET /set-consent/1?device_view=mobile`, denied | 200 `"mobile switch"`, `Set-Cookie: SC(mobile, 31536000)` | planned |
-| REM-22 | `setConsent(false)` overrides a granted checker | `TAC`, `switch: { target: none }` | `GET /set-consent/0?device_view=mobile`, granted | `Set-Cookie: SC(mobile)` | planned |
-| REM-23 | `setConsent(true)` without a provider | `switch: { target: none }` | `GET /set-consent/1?device_view=mobile` | `Set-Cookie: SC(mobile, 31536000)` | planned |
-| REM-24 | `setConsent(null)` restores the checker | `TAC`, `switch: { target: none }` | `GET /set-consent/null?device_view=mobile`, granted | `Set-Cookie: SC(mobile, 31536000)` | planned |
-| REM-25 | Custom `consented_lifetime` | `TAC`, `remember: { consented_lifetime: 15552000 }` | switch, granted | `Set-Cookie: SC(mobile, 15552000)` | planned |
-| REM-26 | The checker is asked only when a write is planned | `TAC` (checker wrapped in a counting spy) | `GET /view`, `UA=iphone` | 200 `"mobile detector"`; `hasConsent()` called 0 times | planned |
+| REM-21 | `setConsent(true)` overrides a denied checker | `TAC`, `switch: { target: none }` | `GET /set-consent/1?device_view=mobile`, denied | 200 `"mobile switch"`, `Set-Cookie: SC(mobile, 31536000)` | active |
+| REM-22 | `setConsent(false)` overrides a granted checker | `TAC`, `switch: { target: none }` | `GET /set-consent/0?device_view=mobile`, granted | `Set-Cookie: SC(mobile)` | active |
+| REM-23 | `setConsent(true)` without a provider | `switch: { target: none }` | `GET /set-consent/1?device_view=mobile` | `Set-Cookie: SC(mobile, 31536000)` | active |
+| REM-24 | `setConsent(null)` restores the checker | `TAC`, `switch: { target: none }` | `GET /set-consent/null?device_view=mobile`, granted | `Set-Cookie: SC(mobile, 31536000)` | active |
+| REM-25 | Custom `consented_lifetime` | `TAC`, `remember: { consented_lifetime: 15552000 }` | switch, granted | `Set-Cookie: SC(mobile, 15552000)` | active |
+| REM-26 | The checker is asked only when a write is planned | `TAC` (checker wrapped in a counting spy) | `GET /view`, `UA=iphone` | 200 `"mobile detector"`; `hasConsent()` called 0 times | active |
 
 ## 7. Cookie attributes (CK), design.md section 4
 
@@ -374,7 +374,7 @@ All rows switch with `GET /view?device_view=mobile` (302, `Location: /view`) unl
 | CK-11 | `same_site: none` over HTTPS | `remember: { cookie: { same_site: none } }` | `GET https://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=none` | active |
 | CK-12 | `same_site: null` | `remember: { cookie: { same_site: null } }` | switch | `Set-Cookie: device_view=mobile; path=/; httponly` | active |
 | CK-13 | `raw: true` | `remember: { cookie: { raw: true } }` | switch | `Set-Cookie: SC(mobile)`; the `Cookie` object is raw | active |
-| CK-14 | Persistent cookie over HTTPS | `TAC` | `GET https://localhost/view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `Set-Cookie: SCS(mobile, 31536000)` | planned |
+| CK-14 | Persistent cookie over HTTPS | `TAC` | `GET https://localhost/view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `Set-Cookie: SCS(mobile, 31536000)` | active |
 | CK-15 | The expired cookie carries the configured attributes | `remember: { cookie: { name: dv, path: /shop, domain: .example.com } }` | `GET /view`, `Cookie: dv=phone` | `Set-Cookie: dv=deleted; expires=E(-31536001); Max-Age=0; path=/shop; domain=.example.com; httponly; samesite=lax` | active |
 | CK-16 | `same_site: none` forces `secure`, even over HTTP | `remember: { cookie: { same_site: none } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=none` (`secure: auto` would leave it out over HTTP; `same_site: none` adds it whatever `secure` says, and `secure: false` is refused by CFG-26) | active |
 
@@ -389,10 +389,10 @@ created before.
 | SES-01 | Switch writes the session | `remember: { storage: session }` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `device_view` cookie; the session holds `_device_view = mobile` | active |
 | SES-02 | Reads a previous session | `remember: { storage: session }` | `GET /view`, previous session holding `_device_view = tablet`, `UA=iphone` | 200 `"tablet remembered"`, `Vary: [Cookie]` | planned |
 | SES-03 | Never starts a session to read | `remember: { storage: session }` | `GET /view`, no session cookie, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]`; the session is not started; no session cookie | planned |
-| SES-04 | Lifetimes are ignored | `remember: { storage: session }`, `TAC` | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | no `device_view` cookie; the session holds `_device_view = mobile`; the session cookie is the framework's, unchanged | planned |
+| SES-04 | Lifetimes are ignored | `remember: { storage: session }`, `TAC` | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | no `device_view` cookie; the session holds `_device_view = mobile`; the session cookie is the framework's, unchanged | active |
 | SES-05 | Custom session key | `remember: { storage: session, session: { key: dv } }` | `GET /view?device_view=mobile` | the session holds `dv = mobile` and no `_device_view` | active |
 | SES-06 | Detected view written to the session | `remember: { storage: session, detected_view: true }` | `GET /view`, `UA=iphone` | 200; the session holds `_device_view = mobile` | active |
-| SES-07 | Detected view with consent denied is not written | `remember: { storage: session, detected_view: true }`, `TAC` | `GET /view`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 200; the session is not started | planned |
+| SES-07 | Detected view with consent denied is not written | `remember: { storage: session, detected_view: true }`, `TAC` | `GET /view`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 200; the session is not started | active |
 | SES-08 | The route default stops a session write | `remember: { storage: session }` | `GET /no-remember?device_view=mobile` | 302, `Location: /no-remember`; the session is not started | planned |
 
 ## 9. Storage none and custom storage (STO), design.md sections 4 and 10
@@ -416,26 +416,26 @@ is false or null.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-01 | No provider: no checker is called | — | switch | `Set-Cookie: SC(mobile)`; no `device_view.consent_checker` service | planned |
-| CON-02 | Custom checker service | `consent: { provider: app.header_consent }` (a test checker: `X-Consent: yes` → true, `no` → false, else null) | switch, `X-Consent: yes` | `hasConsent` true; `Set-Cookie: SC(mobile, 31536000)` | planned |
-| CON-03 | Custom checker answering null | `consent: { provider: app.header_consent }` | switch, no `X-Consent` | `hasConsent` null; `Set-Cookie: SC(mobile)` | planned |
-| CON-04 | The interface alias follows the configuration | `consent: { provider: app.header_consent }` | container | `ConsentCheckerInterface` and `device_view.consent_checker` resolve to `app.header_consent` | planned |
+| CON-01 | No provider: no checker is called | — | switch | `Set-Cookie: SC(mobile)`; no `device_view.consent_checker` service | active |
+| CON-02 | Custom checker service | `consent: { provider: app.header_consent }` (a test checker: `X-Consent: yes` → true, `no` → false, else null) | switch, `X-Consent: yes` | `hasConsent` true; `Set-Cookie: SC(mobile, 31536000)` | active |
+| CON-03 | Custom checker answering null | `consent: { provider: app.header_consent }` | switch, no `X-Consent` | `hasConsent` null; `Set-Cookie: SC(mobile)` | active |
+| CON-04 | The interface alias follows the configuration | `consent: { provider: app.header_consent }` | container | `ConsentCheckerInterface` and `device_view.consent_checker` resolve to `app.header_consent` | active |
 
 ### tarteaucitron (CON-TAC): cookie `tarteaucitron`, key `device_view`
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-TAC-01 | Granted | `tarteaucitron` | `Cookie: tarteaucitron=!device_view=true` | `hasConsent` true | planned |
-| CON-TAC-02 | Granted among other services | `tarteaucitron` | `Cookie: tarteaucitron=!gtag=true!device_view=true!youtube=false` | `hasConsent` true | planned |
-| CON-TAC-03 | Denied | `tarteaucitron` | `Cookie: tarteaucitron=!device_view=false` | `hasConsent` false | planned |
-| CON-TAC-04 | Waiting | `tarteaucitron` | `Cookie: tarteaucitron=!device_view=wait` | `hasConsent` null | planned |
-| CON-TAC-05 | Service absent | `tarteaucitron` | `Cookie: tarteaucitron=!gtag=true` | `hasConsent` null | planned |
-| CON-TAC-06 | No cookie | `tarteaucitron` | no cookie | `hasConsent` null | planned |
-| CON-TAC-07 | Exact key match only | `tarteaucitron` | `Cookie: tarteaucitron=!device_view_extra=true` | `hasConsent` null | planned |
-| CON-TAC-08 | Garbage | `tarteaucitron` | `Cookie: tarteaucitron=%%%!!!==` | `hasConsent` null | planned |
-| CON-TAC-09 | Array cookie | `tarteaucitron` | cookie `tarteaucitron` = `['x' => '1']` | `hasConsent` null, no error | planned |
-| CON-TAC-10 | Custom cookie name | `consent: { provider: tarteaucitron, cookie: tac }` | `Cookie: tac=!device_view=true; tarteaucitron=!device_view=false` | `hasConsent` true | planned |
-| CON-TAC-11 | Custom key | `consent: { provider: tarteaucitron, key: dv_pref }` | `Cookie: tarteaucitron=!dv_pref=true!device_view=false` | `hasConsent` true | planned |
+| CON-TAC-01 | Granted | `tarteaucitron` | `Cookie: tarteaucitron=!device_view=true` | `hasConsent` true | active |
+| CON-TAC-02 | Granted among other services | `tarteaucitron` | `Cookie: tarteaucitron=!gtag=true!device_view=true!youtube=false` | `hasConsent` true | active |
+| CON-TAC-03 | Denied | `tarteaucitron` | `Cookie: tarteaucitron=!device_view=false` | `hasConsent` false | active |
+| CON-TAC-04 | Waiting | `tarteaucitron` | `Cookie: tarteaucitron=!device_view=wait` | `hasConsent` null | active |
+| CON-TAC-05 | Service absent | `tarteaucitron` | `Cookie: tarteaucitron=!gtag=true` | `hasConsent` null | active |
+| CON-TAC-06 | No cookie | `tarteaucitron` | no cookie | `hasConsent` null | active |
+| CON-TAC-07 | Exact key match only | `tarteaucitron` | `Cookie: tarteaucitron=!device_view_extra=true` | `hasConsent` null | active |
+| CON-TAC-08 | Garbage | `tarteaucitron` | `Cookie: tarteaucitron=%%%!!!==` | `hasConsent` null | active |
+| CON-TAC-09 | Array cookie | `tarteaucitron` | cookie `tarteaucitron` = `['x' => '1']` | `hasConsent` null, no error | active |
+| CON-TAC-10 | Custom cookie name | `consent: { provider: tarteaucitron, cookie: tac }` | `Cookie: tac=!device_view=true; tarteaucitron=!device_view=false` | `hasConsent` true | active |
+| CON-TAC-11 | Custom key | `consent: { provider: tarteaucitron, key: dv_pref }` | `Cookie: tarteaucitron=!dv_pref=true!device_view=false` | `hasConsent` true | active |
 
 ### CookieConsent v3 (CON-CC): cookie `cc_cookie`, key `preferences`
 
@@ -771,7 +771,7 @@ The kernel runs with `debug: true`, TwigBundle, WebProfilerBundle and
 | FAC-03 | Outside a request | `default_view: tablet` | empty `RequestStack` (e.g. a console command) | `getView()` Tablet, `getSource()` Default, no exception, the detector is not called | active |
 | FAC-04 | `setView()` outside a request | — | empty `RequestStack` | no exception; debug log `Ignored DeviceView::setView(): there is no request.` | active |
 | FAC-05 | Unknown view name | — | `setView('phone')` and `is('phone')` in a controller | `InvalidArgumentException`, message `Unknown device view "phone". Expected one of: mobile, tablet, desktop.` | active |
-| FAC-06 | Changes after the response is built | a `kernel.response` listener at priority -10 calling `setView('mobile', true)`, `setRemember(true)` and `setConsent(true)` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"`, no `Set-Cookie`; debug log `Ignored a device view change made after the response was built.` | planned |
+| FAC-06 | Changes after the response is built | a `kernel.response` listener at priority -10 calling `setView('mobile', true)`, `setRemember(true)` and `setConsent(true)` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"`, no `Set-Cookie`; debug log `Ignored a device view change made after the response was built.` | active |
 | FAC-07 | `getSwitchUrl()` | — | `GET /view?a=1`; `getSwitchUrl('mobile')`, `getSwitchUrl(DeviceType::Tablet, 'home')` | `/view?a=1&device_view=mobile`, `/?device_view=tablet` | active |
 | FAC-08 | `getSwitchUrl()` keeps the base URL | — | front controller `/app`: `GET http://localhost/app/view`; same calls | `/app/view?device_view=mobile`, `/app/?device_view=tablet` | active |
 | FAC-09 | `getSwitchUrl()` uses the parameter and names | `switch: { parameter: view }`, `views: { names: { mobile: m } }` | `GET /view`; `getSwitchUrl('m')` | `/view?view=m` | active |
@@ -827,9 +827,9 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-27 | Cookie name | `remember: { cookie: { name: 'dv;x' } }` | container build | message contains `The cookie name "dv;x" is invalid.` | active |
 | CFG-28 | Session key not empty | `remember: { session: { key: '' } }` | container build | message contains `The path "device_view.remember.session.key" cannot contain an empty value` | active |
 | CFG-29 | `storage: none` with `detected_view` | `remember: { storage: none, detected_view: true }` | container build | message contains `device_view.remember.detected_view cannot be true when device_view.remember.storage is "none".` | active |
-| CFG-30 | `storage: none` with a consent provider | `remember: { storage: none }`, `TAC` | container build | message contains `device_view.consent.provider cannot be set when device_view.remember.storage is "none".` | planned |
-| CFG-31 | `consent.provider` service | `consent: { provider: app.not_a_checker }` | container build | message contains `The service "app.not_a_checker" set in device_view.consent.provider must implement DeviceViewBundle\Consent\ConsentCheckerInterface.` | planned |
-| CFG-32 | Consent key not empty | `consent: { provider: tarteaucitron, key: '' }` | container build | message contains `The path "device_view.consent.key" cannot contain an empty value` | planned |
+| CFG-30 | `storage: none` with a consent provider | `remember: { storage: none }`, `TAC` | container build | message contains `device_view.consent.provider cannot be set when device_view.remember.storage is "none".` | active |
+| CFG-31 | `consent.provider` service | `consent: { provider: app.not_a_checker }` | container build | message contains `The service "app.not_a_checker" set in device_view.consent.provider must implement DeviceViewBundle\Consent\ConsentCheckerInterface.` | active |
+| CFG-32 | Consent key not empty | `consent: { provider: tarteaucitron, key: '' }` | container build | message contains `device_view.consent.key must be null or a non-empty string, got "".` | active |
 | CFG-33 | Host required | `redirect: { mobile: { enabled: true } }` | container build | message contains `device_view.redirect.mobile.host is required when the mobile redirect is enabled.` | planned |
 | CFG-34 | Host must be absolute | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | message contains `device_view.redirect.mobile.host "m.example.com" must be an absolute http(s) URL with a host, an optional port and an optional path, and no query, fragment or user info.` | planned |
 | CFG-35 | Host without query | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/?a=1' } }` | container build | the CFG-34 message for `"https://m.example.com/?a=1"` | planned |
@@ -850,7 +850,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-50 | `services.redirect_policy` service | `services: { redirect_policy: app.nope }` | container build | message contains `The service "app.nope" set in device_view.services.redirect_policy does not exist.` | planned |
 | CFG-51 | `services.remember_policy` service | `services: { remember_policy: app.not_a_policy }` | container build | message contains `The service "app.not_a_policy" set in device_view.services.remember_policy must implement DeviceViewBundle\Remember\RememberPolicyInterface.` | planned |
 | CFG-52 | The defaults are valid | `{}` (no `detector` key) with both libraries installed | container build | builds | active |
-| CFG-53 | Consent cookie not empty | `consent: { provider: tarteaucitron, cookie: '' }` | container build | message contains `The path "device_view.consent.cookie" cannot contain an empty value` | planned |
+| CFG-53 | Consent cookie not empty | `consent: { provider: tarteaucitron, cookie: '' }` | container build | message contains `device_view.consent.cookie must be null or a non-empty string, got "".` | active |
 | CFG-54 | Mobile Detect in the chain not installed | `detector: { id: chain }` (chain `[client_hints, mobile_detect]`), mobiledetect not installed | container build | `LogicException`, message `The "mobile_detect" detector in device_view.detector.chain needs mobiledetect/mobiledetectlib. Run "composer require mobiledetect/mobiledetectlib", or remove it from device_view.detector.chain.` | planned |
 | CFG-55 | Matomo in the chain not installed | `detector: { id: chain, chain: [client_hints, matomo] }`, matomo not installed | container build | `LogicException`, message `The "matomo" detector in device_view.detector.chain needs matomo/device-detector. Run "composer require matomo/device-detector", or remove it from device_view.detector.chain.` | planned |
 | CFG-56 | `remember.storage` service missing | `remember: { storage: app.nope }` | container build | message contains `The service "app.nope" set in device_view.remember.storage does not exist.` | active |
@@ -869,7 +869,7 @@ The exception is `InvalidConfigurationException` unless said.
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | WRK-01 | Same answers as fresh kernels | `M`, `TAC` | one booted kernel, 200 requests from a seeded list mixing fixture user agents, cookies, `www`/`m` hosts, consent cookies and switch parameters | each response (status, `Location`, `Set-Cookie`, `Vary`, `Cache-Control`, body) equals the response of a fresh kernel to the same request | planned |
-| WRK-02 | Nothing leaks between requests | `switch: { target: none }` | one kernel: `GET /set-consent/1?device_view=tablet`, then `GET /view` `UA=iphone` with no cookie | second response: 200 `"mobile detector"`, no `Set-Cookie` | planned |
+| WRK-02 | Nothing leaks between requests | `switch: { target: none }` | one kernel: `GET /set-consent/1?device_view=tablet`, then `GET /view` `UA=iphone` with no cookie | second response: 200 `"mobile detector"`, no `Set-Cookie` | active |
 | WRK-03 | Memory stays flat | same as WRK-01 | the 200 requests, with `gc_collect_cycles()` before each measure | `memory_get_usage()` after request 200 minus after request 50 is below 1 MiB | planned |
 | WRK-04 | `$_SERVER` changes nothing | same as WRK-01 | the 200 requests with `$_SERVER['HTTP_USER_AGENT']` unset, then set to the `iphone` user agent | the responses are identical to WRK-01's | planned |
 | WRK-05 | Services hold no request state | same as WRK-01 | after the 200 requests | no property of a `device_view.*` service holds a `Request`, a `DeviceViewContext` or a `DeviceType` | planned |
@@ -953,10 +953,16 @@ the area; if the owner disagrees, the rows change before they become active.
 - `remember.storage: session` fails the container build when `framework.session` is not
   enabled, instead of failing on the first switch at runtime (CFG-57).
 - A service id equal to the alias the option sets (`device_view.detector` in `detector.id`,
-  `device_view.storage` in `remember.storage`, `device_view.resolver` in `services.resolver`)
+  `device_view.storage` in `remember.storage`, `device_view.resolver` in `services.resolver`,
+  `device_view.consent_checker` in `consent.provider`)
   fails the container build with the CFG-58 message for that option.
 - `setView($view, true)` is remembered with the `switch` trigger (REM-18, REM-19);
-  `setConsent(true)` without a provider gives `consented_lifetime` (REM-23).
+  `setConsent(true)` without a provider gives `consented_lifetime` (REM-23). Without a provider,
+  a detected view follows the no-provider row of the decision table whatever `setConsent(false)`
+  says, and `setConsent(true)` gives it `consented_lifetime` too.
+- `consent.key` and `consent.cookie` set up a built-in reader; a `consent.provider` that is a
+  service id gets neither. They accept `null` (the reader's default) or a non-empty string
+  (CFG-32, CFG-53).
 - Developer API calls with an unknown view name or switch target throw `InvalidArgumentException`
   (FAC-05, FAC-11, TWIG-09); request inputs never throw. An argument error throws whether or not
   there is a request (FAC-11); a missing request alone never throws (FAC-03, FAC-04, FAC-10).

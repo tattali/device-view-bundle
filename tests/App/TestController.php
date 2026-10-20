@@ -61,6 +61,22 @@ final readonly class TestController
     }
 
     /**
+     * Overrides the consent of the request: "1" grants it, "0" denies it, "null" gives the answer
+     * back to the consent checker.
+     */
+    public function setConsent(string $value): Response
+    {
+        $this->deviceView->setConsent(match ($value) {
+            '1' => true,
+            '0' => false,
+            'null' => null,
+            default => throw new \InvalidArgumentException(\sprintf('Unknown consent "%s".', $value)),
+        });
+
+        return $this->view();
+    }
+
+    /**
      * Every reader of the DeviceView facade, with is() asked for the name in the path.
      */
     public function readers(string $name): JsonResponse

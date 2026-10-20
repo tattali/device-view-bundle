@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Tests\App;
 
+use DeviceViewBundle\Consent\ConsentCheckerInterface;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\DeviceView;
 use DeviceViewBundle\DeviceViewBundle;
@@ -11,6 +12,7 @@ use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Filesystem\Filesystem;
@@ -25,7 +27,8 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
  * Each bundle configuration gets its own cache directory and container class, so one test
  * run can boot the kernel with several configurations.
  *
- * Tests read the bundle's private services through the public aliases of TEST_ALIASES.
+ * Tests read the bundle's private services through the public aliases of TEST_ALIASES, and of
+ * OPTIONAL_TEST_ALIASES when the configuration defines the service.
  */
 final class Kernel extends BaseKernel
 {
@@ -47,6 +50,16 @@ final class Kernel extends BaseKernel
         'test.view_storage_interface' => ViewStorageInterface::class,
     ];
 
+    /**
+     * Public aliases of the bundle's services that only some configurations define.
+     *
+     * @var array<string, string>
+     */
+    public const array OPTIONAL_TEST_ALIASES = [
+        'test.device_view.consent_checker' => 'device_view.consent_checker',
+        'test.consent_checker_interface' => ConsentCheckerInterface::class,
+    ];
+
     private static ?string $runDir = null;
 
     private readonly string $configHash;
@@ -62,9 +75,10 @@ final class Kernel extends BaseKernel
     private ?array $shellVerbosityBeforeBoot = null;
 
     /**
-     * @param array<string, mixed>        $deviceViewConfig the device_view configuration
-     * @param array<string, class-string> $services         public services of the application, by id
-     * @param array<string, mixed>        $framework        framework configuration added to the baseline, e.g. a session
+     * @param array<string, mixed>                       $deviceViewConfig the device_view configuration
+     * @param array<string, class-string>                $services         public services of the application, by id
+     * @param array<string, mixed>                       $framework        framework configuration added to the baseline, e.g. a session
+     * @param array<string, array{class-string, string}> $decorators       public services of the application decorating a service, by id: [class, id of the decorated service]; the class takes the decorated service as its only argument
      */
     public function __construct(
         private readonly array $deviceViewConfig = [],
@@ -72,9 +86,10 @@ final class Kernel extends BaseKernel
         bool $debug = false,
         private readonly array $services = [],
         private readonly array $framework = [],
+        private readonly array $decorators = [],
     ) {
         parent::__construct($environment, $debug);
-        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug, $services, $framework]));
+        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug, $services, $framework, $decorators]));
     }
 
     #[\Override]
@@ -194,9 +209,18 @@ final class Kernel extends BaseKernel
         foreach ($this->services as $id => $class) {
             $services->set($id, $class)->public();
         }
+        foreach ($this->decorators as $id => [$class, $decorated]) {
+            $services->set($id, $class)->public()->decorate($decorated)->args([new Reference('.inner')]);
+        }
         foreach (self::TEST_ALIASES as $alias => $id) {
             $services->alias($alias, $id)->public();
         }
+    }
+
+    #[\Override]
+    protected function build(ContainerBuilder $container): void
+    {
+        $container->addCompilerPass(new OptionalAliasesPass(self::OPTIONAL_TEST_ALIASES));
     }
 
     protected function configureRoutes(RoutingConfigurator $routes): void

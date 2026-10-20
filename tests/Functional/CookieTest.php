@@ -124,6 +124,16 @@ final class CookieTest extends TestCase
         self::assertTrue($response->headers->getCookies()[0]->isRaw());
     }
 
+    #[Group('CK-14')]
+    public function testAPersistentCookieOverHttps(): void
+    {
+        $this->boot(['consent' => ['provider' => 'tarteaucitron']]);
+
+        $response = $this->handle(self::request('https://localhost/view?device_view=mobile', cookies: ['tarteaucitron' => '!device_view=true']));
+
+        self::assertSetCookie(self::scs('mobile', 31536000), $response);
+    }
+
     public function testRawFalseByDefault(): void
     {
         self::assertFalse($this->switch()->headers->getCookies()[0]->isRaw());

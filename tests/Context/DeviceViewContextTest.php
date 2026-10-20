@@ -151,6 +151,21 @@ final class DeviceViewContextTest extends TestCase
         self::assertTrue($context->remember);
     }
 
+    public function testSetConsentRecordsTheOverride(): void
+    {
+        $context = new DeviceViewContext();
+        self::assertNull($context->consent, 'no override: the consent checker answers');
+
+        $context->setConsent(true);
+        self::assertTrue($context->consent);
+
+        $context->setConsent(false);
+        self::assertFalse($context->consent);
+
+        $context->setConsent(null);
+        self::assertNull($context->consent);
+    }
+
     public function testMarkingAForgedStoredValueRecordsIt(): void
     {
         $context = new DeviceViewContext();

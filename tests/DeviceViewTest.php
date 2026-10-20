@@ -148,6 +148,34 @@ final class DeviceViewTest extends TestCase
         self::assertTrue($context->remember);
     }
 
+    public function testSetConsentSetsTheOverrideOfTheMainRequest(): void
+    {
+        $stack = new RequestStack();
+        $context = new DeviceViewContext();
+        $stack->push(self::mainRequest($context, null));
+        $stack->push(Request::create('/sub'));
+        $deviceView = self::deviceView($stack);
+
+        $deviceView->setConsent(true);
+        self::assertTrue($context->consent);
+
+        $deviceView->setConsent(false);
+        self::assertFalse($context->consent);
+
+        $deviceView->setConsent(null);
+        self::assertNull($context->consent);
+    }
+
+    public function testSetConsentOutsideARequest(): void
+    {
+        $logger = new TestLogger();
+
+        self::deviceView(new RequestStack(), logger: $logger)->setConsent(true);
+        self::deviceView(new RequestStack())->setConsent(true);
+
+        self::assertSame(['Ignored DeviceView::setConsent(): there is no request.'], $logger->messages(LogLevel::DEBUG));
+    }
+
     public function testSetRememberOutsideARequest(): void
     {
         $logger = new TestLogger();
@@ -169,12 +197,15 @@ final class DeviceViewTest extends TestCase
 
         $deviceView->setView('mobile', true);
         $deviceView->setRemember(false);
+        $deviceView->setConsent(true);
 
         self::assertNull($context->forcedView);
         self::assertNull($context->plannedView);
         self::assertNull($context->remember);
+        self::assertNull($context->consent);
         self::assertSame(DeviceType::Tablet, $deviceView->getView(), 'reading still works');
         self::assertSame([
+            'Ignored a device view change made after the response was built.',
             'Ignored a device view change made after the response was built.',
             'Ignored a device view change made after the response was built.',
         ], $logger->messages(LogLevel::DEBUG));
