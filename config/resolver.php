@@ -31,6 +31,7 @@ return static function (ContainerConfigurator $container): void {
         ->set('device_view.resolver.step.forced', ForcedStep::class)
         ->set('device_view.resolver.step.switch', SwitchStep::class)
             ->args([new Reference('device_view.switch_parameter')])
+        // device_view.resolver.step.remembered is in remember.php
         ->set('device_view.resolver.step.detector', DetectorStep::class)
             ->args([new Reference('device_view.detector')])
 
@@ -39,6 +40,7 @@ return static function (ContainerConfigurator $container): void {
                 [
                     new Reference('device_view.resolver.step.forced'),
                     new Reference('device_view.resolver.step.switch'),
+                    new Reference('device_view.resolver.step.remembered'),
                     new Reference('device_view.resolver.step.detector'),
                 ],
                 new AbstractArgument('default_view'),

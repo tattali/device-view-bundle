@@ -44,10 +44,33 @@ final class DeviceViewContext
     public private(set) ?DeviceType $switchView = null;
 
     /**
-     * Whether the switch listener applied the switch parameter to this request. The remember step
-     * plans a write with the switch trigger from it.
+     * Whether the switch listener applied the switch parameter to this request.
      */
     public private(set) bool $switched = false;
+
+    /**
+     * The view planned for a write with the switch trigger, or null: the view of the switch, or
+     * the last view DeviceView::setView() asked to remember. The response remembers it, after
+     * tablet_as_mobile, even when the request uses another view.
+     */
+    public private(set) ?DeviceType $plannedView = null;
+
+    /**
+     * The override set with DeviceView::setRemember(): false stops any write, true lets the
+     * remember policy decide; null when it was not called.
+     */
+    public private(set) ?bool $remember = null;
+
+    /**
+     * Whether the remember storage holds a string that is not a view name, which the response
+     * expires.
+     */
+    public private(set) bool $forgedStoredValue = false;
+
+    /**
+     * Whether the response listener ran: DeviceView ignores changes from then on.
+     */
+    public private(set) bool $responseBuilt = false;
 
     private bool $switchRead = false;
 
@@ -87,20 +110,48 @@ final class DeviceViewContext
     }
 
     /**
-     * Records that the switch applied to this request.
+     * Records that the switch applied to this request, and plans to remember its view.
      */
-    public function markSwitched(): void
+    public function markSwitched(DeviceType $view): void
     {
         $this->switched = true;
+        $this->plannedView = $view;
     }
 
     /**
      * Forces the view: the next read resolves again, with the forced view first. The inputs
      * already read stay recorded.
+     *
+     * @param bool $remember whether to remember the view like a switch, which replaces the planned view; without it, the planned view stays
      */
-    public function force(DeviceType $view): void
+    public function force(DeviceType $view, bool $remember = false): void
     {
         $this->forcedView = $view;
+        if ($remember) {
+            $this->plannedView = $view;
+        }
+
         $this->resolved = null;
+    }
+
+    public function setRemember(bool $remember): void
+    {
+        $this->remember = $remember;
+    }
+
+    /**
+     * Records that the remember storage holds a forged value.
+     */
+    public function markForgedStoredValue(): void
+    {
+        $this->forgedStoredValue = true;
+    }
+
+    /**
+     * Records that the response listener ran.
+     */
+    public function markResponseBuilt(): void
+    {
+        $this->responseBuilt = true;
     }
 }

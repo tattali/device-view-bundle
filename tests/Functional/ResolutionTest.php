@@ -38,7 +38,7 @@ final class ResolutionTest extends TestCase
         self::assertFalse($context->skipped);
         self::assertSame(DeviceType::Mobile, $context->resolved?->view);
         self::assertSame(ViewSource::Detector, $context->resolved->source);
-        self::assertSame(['User-Agent'], $context->consultedInputs);
+        self::assertSame(['Cookie', 'User-Agent'], $context->consultedInputs);
     }
 
     public function testResolutionIsLazy(): void

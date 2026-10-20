@@ -84,21 +84,24 @@ final readonly class DeviceView
     /**
      * Forces the view of the current request (source forced).
      *
-     * @param DeviceType|string $view a view, or one of the configured names
+     * @param DeviceType|string $view     a view, or one of the configured names
+     * @param bool              $remember whether to remember the view as a switch would
      *
      * @throws \InvalidArgumentException when the name is not a configured name
      */
-    public function setView(DeviceType|string $view): void
+    public function setView(DeviceType|string $view, bool $remember = false): void
     {
         $view = $this->toView($view);
-        $context = $this->context()[1] ?? null;
-        if (null === $context) {
-            $this->logger?->debug('Ignored DeviceView::setView(): there is no request.');
+        $this->changeableContext('setView')?->force($view, $remember);
+    }
 
-            return;
-        }
-
-        $context->force($view);
+    /**
+     * Allows or stops remembering the view on the response of the current request. False stops
+     * any write; true lets the remember configuration decide, as when it is not called.
+     */
+    public function setRemember(bool $remember): void
+    {
+        $this->changeableContext('setRemember')?->setRemember($remember);
     }
 
     /**
@@ -142,6 +145,28 @@ final readonly class DeviceView
         $context = $request?->attributes->get(DeviceViewContext::ATTRIBUTE);
 
         return null !== $request && $context instanceof DeviceViewContext ? [$request, $context] : null;
+    }
+
+    /**
+     * The context of the main request, or null, with a debug log, when there is none or its
+     * response was built.
+     */
+    private function changeableContext(string $method): ?DeviceViewContext
+    {
+        $context = $this->context()[1] ?? null;
+        if (null === $context) {
+            $this->logger?->debug(\sprintf('Ignored DeviceView::%s(): there is no request.', $method));
+
+            return null;
+        }
+
+        if ($context->responseBuilt) {
+            $this->logger?->debug('Ignored a device view change made after the response was built.');
+
+            return null;
+        }
+
+        return $context;
     }
 
     private function toView(DeviceType|string $view): DeviceType

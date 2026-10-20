@@ -19,15 +19,17 @@ use Symfony\Component\HttpFoundation\Response;
  * The switch query parameter, through the kernel: the redirect it answers with, and the view it
  * gives the request.
  *
- * The remember cookie a switch writes comes with the remember storage, so the scenarios that
- * also expect a Set-Cookie stay planned; the tests without a group check the rest of them.
+ * Rows that also need a host redirect stay planned; the tests without a group check the rest
+ * of them.
  */
 final class SwitchTest extends TestCase
 {
+    use AssertsCookies;
     use HandlesRequests;
 
     private const string INVALID_SWITCH = 'Ignored an invalid device view from the switch parameter.';
 
+    #[Group('SW-01')]
     public function testSwitchToTheCurrentPage(): void
     {
         $request = self::request('/view?device_view=mobile');
@@ -36,6 +38,7 @@ final class SwitchTest extends TestCase
 
         self::assertRedirect('/view', 302, $response);
         self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+        self::assertSetCookie(self::sc('mobile'), $response);
         self::assertFalse($response->headers->has('Vary'));
         $context = $request->attributes->get(DeviceViewContext::ATTRIBUTE);
         self::assertInstanceOf(DeviceViewContext::class, $context);
@@ -61,11 +64,15 @@ final class SwitchTest extends TestCase
         self::assertRedirect('/app/view', 302, $this->handle(self::appRequest('/app/view?device_view=mobile')));
     }
 
+    #[Group('SW-05')]
     public function testTargetHome(): void
     {
         $this->boot(['switch' => ['target' => 'home']]);
 
-        self::assertRedirect('/', 302, $this->handle(self::request('/view?a=1&device_view=mobile')));
+        $response = $this->handle(self::request('/view?a=1&device_view=mobile'));
+
+        self::assertRedirect('/', 302, $response);
+        self::assertSetCookie(self::sc('mobile'), $response);
     }
 
     #[Group('SW-06')]
@@ -76,6 +83,7 @@ final class SwitchTest extends TestCase
         self::assertRedirect('/app/', 302, $this->handle(self::appRequest('/app/view?device_view=mobile')));
     }
 
+    #[Group('SW-07')]
     public function testTargetNoneAppliesToThisRequestOnly(): void
     {
         $this->boot(['switch' => ['target' => 'none']]);
@@ -87,6 +95,7 @@ final class SwitchTest extends TestCase
         self::assertSame('mobile switch', $response->getContent());
         self::assertFalse($response->headers->has('Location'));
         self::assertFalse($response->headers->has('Vary'));
+        self::assertSetCookie(self::sc('mobile'), $response);
         $context = $request->attributes->get(DeviceViewContext::ATTRIBUTE);
         self::assertInstanceOf(DeviceViewContext::class, $context);
         self::assertTrue($context->switched, 'the remember step needs to know the switch applied');
@@ -146,6 +155,17 @@ final class SwitchTest extends TestCase
         self::assertRedirect('/view?device_view=x', 302, $this->handle(self::request('/view?view=tablet&device_view=x')));
     }
 
+    #[Group('SW-10')]
+    public function testCustomParameterIsRemembered(): void
+    {
+        $this->boot(['switch' => ['parameter' => 'view']]);
+
+        $response = $this->handle(self::request('/view?view=tablet'));
+
+        self::assertRedirect('/view', 302, $response);
+        self::assertSetCookie(self::sc('tablet'), $response);
+    }
+
     #[Group('SW-11')]
     public function testCustomParameterTheDefaultNameIsIgnored(): void
     {
@@ -161,19 +181,27 @@ final class SwitchTest extends TestCase
         self::assertPage('desktop detector', $this->handle(self::request('/form?device_view=mobile', method: 'POST')));
     }
 
+    #[Group('SW-13')]
     public function testHeadIsSwitched(): void
     {
-        self::assertRedirect('/form', 302, $this->handle(self::request('/form?device_view=mobile', method: 'HEAD')));
+        $response = $this->handle(self::request('/form?device_view=mobile', method: 'HEAD'));
+
+        self::assertRedirect('/form', 302, $response);
+        self::assertSetCookie(self::sc('mobile'), $response);
     }
 
+    #[Group('SW-14')]
     public function testRedirectMethodsAlsoGovernTheSwitch(): void
     {
         $this->boot(['redirect' => ['methods' => ['GET', 'POST']]]);
 
-        self::assertRedirect('/form', 302, $this->handle(self::request('/form?device_view=mobile', method: 'POST')));
+        $post = $this->handle(self::request('/form?device_view=mobile', method: 'POST'));
+        self::assertRedirect('/form', 302, $post);
+        self::assertSetCookie(self::sc('mobile'), $post);
         $head = $this->handle(self::request('/form?device_view=mobile', method: 'HEAD'));
         self::assertSame(200, $head->getStatusCode());
         self::assertFalse($head->headers->has('Location'));
+        self::assertNoCookie($head);
     }
 
     public function testRedirectMethodsAreCaseInsensitive(): void
@@ -184,14 +212,26 @@ final class SwitchTest extends TestCase
         self::assertRedirect('/form', 302, $this->handle(self::request('/form?device_view=mobile')));
     }
 
-    public function testCacheControlNullSetsNothing(): void
+    #[Group('SW-15')]
+    public function testCacheControlNullSetsNothingTheCookieMakesTheRedirectPrivate(): void
     {
         $this->boot(['redirect' => ['cache_control' => null]]);
 
         $response = $this->handle(self::request('/view?device_view=mobile'));
 
         self::assertRedirect('/view', 302, $response);
+        self::assertSetCookie(self::sc('mobile'), $response);
         self::assertFalse($response->headers->hasCacheControlDirective('no-store'));
+        self::assertSame('private', $response->headers->get('Cache-Control'));
+    }
+
+    public function testCacheControlNullWithoutPrivateWhenRemembering(): void
+    {
+        $this->boot(['redirect' => ['cache_control' => null], 'http_cache' => ['private_when_remembering' => false]]);
+
+        $response = $this->handle(self::request('/view?device_view=mobile'));
+
+        self::assertSetCookie(self::sc('mobile'), $response);
         self::assertSame('no-cache, private', $response->headers->get('Cache-Control'), 'Symfony\'s computed value: nothing is stored');
     }
 
@@ -206,6 +246,15 @@ final class SwitchTest extends TestCase
         self::assertSame('must-revalidate, no-cache, no-store, private', $response->headers->get('Cache-Control'));
     }
 
+    #[Group('SW-21')]
+    public function testASwitchToTheStoredViewIsWrittenAgain(): void
+    {
+        $response = $this->handle(self::request('/view?device_view=mobile', cookies: ['device_view' => 'mobile']));
+
+        self::assertRedirect('/view', 302, $response);
+        self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
     #[Group('SW-22')]
     public function testSubRequestsNeverSwitch(): void
     {
@@ -218,7 +267,10 @@ final class SwitchTest extends TestCase
     {
         $this->boot(['switch' => ['target' => 'none']]);
 
-        self::assertPage('main=tablet sub=tablet switch', $this->handle(self::request('/with-sub-request?device_view=tablet', 'iphone')));
+        $response = $this->handle(self::request('/with-sub-request?device_view=tablet', 'iphone'));
+
+        self::assertSame('main=tablet sub=tablet switch', $response->getContent());
+        self::assertSetCookie(self::sc('tablet'), $response);
     }
 
     public function testDisabledSwitchIsNeverRead(): void
@@ -324,7 +376,6 @@ final class SwitchTest extends TestCase
     {
         self::assertSame($status, $response->getStatusCode(), (string) $response->getContent());
         self::assertSame($location, $response->headers->get('Location'));
-        self::assertSame([], $response->headers->getCookies());
     }
 
     private static function assertPage(string $body, Response $response): void

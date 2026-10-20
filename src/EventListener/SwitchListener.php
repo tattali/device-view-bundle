@@ -16,7 +16,7 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * (32).
  *
  * When the main request carries a valid switch parameter, the listener records the switch on
- * the context, where the remember step finds it, and, unless switch.target is none, answers with
+ * the context, which plans to remember its view, and, unless switch.target is none, answers with
  * a redirect to the switch target: the current page without the parameter, or the home page.
  * The redirect gets redirect.cache_control. The view itself comes from the resolver, whose switch
  * step reads the same parameter.
@@ -44,11 +44,16 @@ final readonly class SwitchListener
 
         $request = $event->getRequest();
         $context = $request->attributes->get(DeviceViewContext::ATTRIBUTE);
-        if (!$context instanceof DeviceViewContext || null === $context->readSwitch($this->parameter, $request)) {
+        if (!$context instanceof DeviceViewContext) {
             return;
         }
 
-        $context->markSwitched();
+        $view = $context->readSwitch($this->parameter, $request);
+        if (null === $view) {
+            return;
+        }
+
+        $context->markSwitched($view);
         if (SwitchTarget::None === $this->target) {
             return;
         }
