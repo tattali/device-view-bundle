@@ -1,0 +1,5 @@
+# source: the encoded example OptanonConsent value of the OneTrust article "Adding General Vendors to Vendor Lists" (https://my.onetrust.com/articles/en_US/Knowledge/UUID-08774602-7c87-0044-2d50-342b9ac83bec, OneTrust 202407.1.0), and the groups parameter of the article "OneTrust Cookies" (https://my.onetrust.com/articles/en_US/Knowledge/UUID-2dc719a8-4be5-8d16-1dc8-c7b4147b88e0): "&"-separated parameters, each value URL-encoded, groups=<group id>:<status>,… with 0 = No Consent and 1 = Consent Given
+# date: 2026-10-20
+# garbage: not written by OneTrust
+# hasConsent: null
+Cookie: OptanonConsent=
