@@ -11,7 +11,7 @@
     "mutators": {
         "@default": true
     },
-    // Measured 2026-10-20 on PHP 8.4.26: 2 mutants, 2 killed, MSI 100%, covered MSI 100%
+    // Measured 2026-10-20 on PHP 8.4.26: 57 mutants, 57 killed, MSI 100%, covered MSI 100%
     "minMsi": 100,
     "minCoveredMsi": 100
 }
