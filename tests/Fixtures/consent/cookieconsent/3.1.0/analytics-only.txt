@@ -1,0 +1,5 @@
+# source: CookieConsent 3.1.0 (npm vanilla-cookieconsent 3.1.0, dist/cookieconsent.umd.js, sha256 bc6e2f2e6381fc025b27a6b0afb5a0e1fc689c6f9fc40a78708adb2054ef4575) run in headless Chrome 155 on a local page at http://localhost, categories necessary (readOnly), preferences (services device_view and theme) and analytics (service ga); the value is encodeURIComponent(JSON.stringify(content)), content built in src/utils/cookies.js lines 163-171 and written at lines 250-255 (tag v3.1.0, commit e6279509)
+# date: 2026-10-20
+# choice: CookieConsent.acceptCategory(['analytics'])
+# hasConsent: false
+Cookie: cc_cookie=%7B%22categories%22%3A%5B%22analytics%22%2C%22necessary%22%5D%2C%22revision%22%3A0%2C%22data%22%3Anull%2C%22consentTimestamp%22%3A%222026-10-20T19%3A12%3A17.555Z%22%2C%22consentId%22%3A%223ac41c5a-ed3c-4a13-8291-5532f57a8aba%22%2C%22services%22%3A%7B%22necessary%22%3A%5B%5D%2C%22preferences%22%3A%5B%5D%2C%22analytics%22%3A%5B%22ga%22%5D%7D%2C%22languageCode%22%3A%22en%22%2C%22lastConsentTimestamp%22%3A%222026-10-20T19%3A12%3A17.555Z%22%2C%22expirationTime%22%3A1808248337555%7D
