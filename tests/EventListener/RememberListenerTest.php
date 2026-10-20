@@ -33,20 +33,41 @@ final class RememberListenerTest extends TestCase
     public function testASwitchIsWritten(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
 
         $response = self::respond(self::listener(), $request);
 
         self::assertSame(['device_view' => 'tablet'], self::cookies($response));
         self::assertTrue($response->headers->hasCacheControlDirective('private'));
         self::assertTrue($context->responseBuilt);
-        self::assertSame(ViewSource::Switch, $context->resolved?->source);
+        self::assertNull($context->resolved, 'the planned view is written without a resolution');
+    }
+
+    public function testThePlannedViewIsWrittenRatherThanTheResolvedView(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+        $context->force(DeviceType::Desktop);
+        self::assertSame(DeviceType::Desktop, $context->resolve(self::resolver(), $request)->view);
+
+        self::assertSame(['device_view' => 'tablet'], self::cookies(self::respond(self::listener(), $request)));
+    }
+
+    public function testTabletAsMobileMapsThePlannedView(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+
+        self::assertSame(['device_view' => 'mobile'], self::cookies(self::respond(self::listener(tabletAsMobile: true), $request)));
+        [$request, $context] = self::request('/view');
+        $context->force(DeviceType::Desktop, true);
+        self::assertSame(['device_view' => 'desktop'], self::cookies(self::respond(self::listener(tabletAsMobile: true), $request)));
     }
 
     public function testTheWrittenViewUsesItsConfiguredName(): void
     {
         [$request, $context] = self::request('/view?device_view=t');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
 
         $response = self::respond(self::listener(names: new ViewNames(['tablet' => 't'])), $request);
 
@@ -56,7 +77,7 @@ final class RememberListenerTest extends TestCase
     public function testTheLifetimeComesFromThePolicy(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $before = time();
 
         $response = self::respond(self::listener(new RememberPolicy(lifetime: 60)), $request);
@@ -69,7 +90,7 @@ final class RememberListenerTest extends TestCase
     public function testAPublicResponseBecomesPrivate(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $response = new Response()->setPublic()->setMaxAge(60);
 
         self::respond(self::listener(), $request, $response);
@@ -80,7 +101,7 @@ final class RememberListenerTest extends TestCase
     public function testPrivateWhenRememberingFalseLeavesTheResponseAlone(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $response = new Response()->setPublic()->setMaxAge(60);
 
         self::respond(self::listener(privateWhenRemembering: false), $request, $response);
@@ -139,7 +160,7 @@ final class RememberListenerTest extends TestCase
     public function testOnSwitchFalseWritesNothing(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $response = new Response()->setPublic();
 
         self::respond(self::listener(new RememberPolicy(onSwitch: false)), $request, $response);
@@ -149,16 +170,17 @@ final class RememberListenerTest extends TestCase
         self::assertNull($context->resolved, 'nothing to write: nothing to resolve');
     }
 
-    public function testPrivateWhenRememberingIsTheDefault(): void
+    public function testPrivateWhenRememberingIsTheDefaultAndTabletAsMobileIsNot(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $response = new Response()->setPublic();
         $names = new ViewNames();
 
         self::respond(new RememberListener(self::resolver($names), new CookieStorage(), new RememberPolicy(), $names), $request, $response);
 
         self::assertSame('private', $response->headers->get('Cache-Control'));
+        self::assertSame(['device_view' => 'tablet'], self::cookies($response));
     }
 
     public function testAnUnresolvedViewIsNotWritten(): void
@@ -177,7 +199,7 @@ final class RememberListenerTest extends TestCase
     public function testSetRememberFalseStopsTheWrite(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $context->setRemember(false);
 
         self::assertSame([], self::cookies(self::respond(self::listener(), $request)));
@@ -221,7 +243,7 @@ final class RememberListenerTest extends TestCase
     public function testAWriteReplacesAForgedValue(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $context->markForgedStoredValue();
 
         self::assertSame(['device_view' => 'tablet'], self::cookies(self::respond(self::listener(), $request)));
@@ -246,7 +268,7 @@ final class RememberListenerTest extends TestCase
     public function testASubRequestIsLeftAlone(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
         $response = new Response();
 
         self::listener()->onKernelResponse(new ResponseEvent(new Kernel(), $request, HttpKernelInterface::SUB_REQUEST, $response));
@@ -294,9 +316,9 @@ final class RememberListenerTest extends TestCase
         ]);
     }
 
-    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true): RememberListener
+    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true, bool $tabletAsMobile = false): RememberListener
     {
-        return new RememberListener(self::resolver($names), new CookieStorage(), $policy, $names, $privateWhenRemembering);
+        return new RememberListener(self::resolver($names), new CookieStorage(), $policy, $names, $privateWhenRemembering, $tabletAsMobile);
     }
 
     /**

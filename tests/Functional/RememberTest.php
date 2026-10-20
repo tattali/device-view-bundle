@@ -156,6 +156,36 @@ final class RememberTest extends TestCase
         self::assertPage('tablet forced', $this->handle(self::request('/set-view/tablet')));
     }
 
+    public function testSetViewWithoutRememberKeepsTheViewTheSwitchPlanned(): void
+    {
+        $this->boot(['switch' => ['target' => 'none']]);
+
+        $response = $this->handle(self::request('/set-view/desktop?device_view=mobile'));
+
+        self::assertSame('desktop forced', $response->getContent());
+        self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
+    public function testSetViewWithRememberReplacesTheViewTheSwitchPlanned(): void
+    {
+        $this->boot(['switch' => ['target' => 'none']]);
+
+        $response = $this->handle(self::request('/set-view/tablet?remember=1&device_view=mobile'));
+
+        self::assertSame('tablet forced', $response->getContent());
+        self::assertSetCookie(self::sc('tablet'), $response);
+    }
+
+    public function testTheViewTheSwitchPlannedIsMappedByTabletAsMobile(): void
+    {
+        $this->boot(['tablet_as_mobile' => true, 'switch' => ['target' => 'none']]);
+
+        $response = $this->handle(self::request('/set-view/desktop?device_view=tablet'));
+
+        self::assertSame('desktop forced', $response->getContent());
+        self::assertSetCookie(self::sc('mobile'), $response);
+    }
+
     #[Group('VAL-01')]
     public function testTheSwitchTokenIsTrimmedAndLowerCased(): void
     {

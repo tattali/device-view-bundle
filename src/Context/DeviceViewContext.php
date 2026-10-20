@@ -44,16 +44,16 @@ final class DeviceViewContext
     public private(set) ?DeviceType $switchView = null;
 
     /**
-     * Whether the switch listener applied the switch parameter to this request. The remember step
-     * plans a write with the switch trigger from it.
+     * Whether the switch listener applied the switch parameter to this request.
      */
     public private(set) bool $switched = false;
 
     /**
-     * Whether DeviceView::setView() asked to remember the forced view, which plans a write with
-     * the switch trigger.
+     * The view planned for a write with the switch trigger, or null: the view of the switch, or
+     * the last view DeviceView::setView() asked to remember. The response remembers it, after
+     * tablet_as_mobile, even when the request uses another view.
      */
-    public private(set) bool $rememberRequested = false;
+    public private(set) ?DeviceType $plannedView = null;
 
     /**
      * The override set with DeviceView::setRemember(): false stops any write, true lets the
@@ -110,23 +110,27 @@ final class DeviceViewContext
     }
 
     /**
-     * Records that the switch applied to this request.
+     * Records that the switch applied to this request, and plans to remember its view.
      */
-    public function markSwitched(): void
+    public function markSwitched(DeviceType $view): void
     {
         $this->switched = true;
+        $this->plannedView = $view;
     }
 
     /**
      * Forces the view: the next read resolves again, with the forced view first. The inputs
      * already read stay recorded.
      *
-     * @param bool $remember whether to remember the view like a switch; the last call decides
+     * @param bool $remember whether to remember the view like a switch, which replaces the planned view; without it, the planned view stays
      */
     public function force(DeviceType $view, bool $remember = false): void
     {
         $this->forcedView = $view;
-        $this->rememberRequested = $remember;
+        if ($remember) {
+            $this->plannedView = $view;
+        }
+
         $this->resolved = null;
     }
 

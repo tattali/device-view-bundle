@@ -34,6 +34,7 @@ final class SwitchListenerTest extends TestCase
         self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
         self::assertTrue($context->switched);
         self::assertSame(DeviceType::Mobile, $context->switchView);
+        self::assertSame(DeviceType::Mobile, $context->plannedView);
     }
 
     public function testTheTargetStatusAndCacheControlAreConfigured(): void

@@ -28,7 +28,7 @@ final class DeviceViewContextTest extends TestCase
         self::assertNull($context->switchView);
         self::assertFalse($context->switched);
         self::assertNull($context->remember);
-        self::assertFalse($context->rememberRequested);
+        self::assertNull($context->plannedView);
         self::assertFalse($context->forgedStoredValue);
         self::assertFalse($context->responseBuilt);
     }
@@ -57,13 +57,14 @@ final class DeviceViewContextTest extends TestCase
         self::assertFalse($context->switched, 'reading the parameter does not apply the switch');
     }
 
-    public function testMarkingTheSwitchRecordsIt(): void
+    public function testMarkingTheSwitchRecordsItAndPlansItsView(): void
     {
         $context = new DeviceViewContext();
 
-        $context->markSwitched();
+        $context->markSwitched(DeviceType::Tablet);
 
         self::assertTrue($context->switched);
+        self::assertSame(DeviceType::Tablet, $context->plannedView);
     }
 
     public function testTheViewIsResolvedOnce(): void
@@ -114,19 +115,29 @@ final class DeviceViewContextTest extends TestCase
         self::assertSame([], $context->consultedInputs);
     }
 
-    public function testForcingWithRememberRequestsAWrite(): void
+    public function testForcingWithRememberPlansTheView(): void
     {
         $context = new DeviceViewContext();
+        $context->markSwitched(DeviceType::Mobile);
 
         $context->force(DeviceType::Tablet, true);
 
         self::assertSame(DeviceType::Tablet, $context->forcedView);
-        self::assertTrue($context->rememberRequested);
+        self::assertSame(DeviceType::Tablet, $context->plannedView, 'it replaces the view the switch planned');
 
-        $context->force(DeviceType::Mobile);
+        $context->force(DeviceType::Desktop);
 
-        self::assertSame(DeviceType::Mobile, $context->forcedView);
-        self::assertFalse($context->rememberRequested, 'the last call decides');
+        self::assertSame(DeviceType::Desktop, $context->forcedView);
+        self::assertSame(DeviceType::Tablet, $context->plannedView, 'forcing without remember keeps the plan');
+    }
+
+    public function testForcingWithoutRememberPlansNothing(): void
+    {
+        $context = new DeviceViewContext();
+
+        $context->force(DeviceType::Tablet);
+
+        self::assertNull($context->plannedView);
     }
 
     public function testSetRememberRecordsTheOverride(): void

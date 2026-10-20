@@ -53,6 +53,7 @@ return static function (ContainerConfigurator $container): void {
                 new Reference('device_view.remember_policy'),
                 new Reference('device_view.view_names'),
                 new AbstractArgument('http_cache.private_when_remembering'),
+                new AbstractArgument('tablet_as_mobile'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::RESPONSE, 'method' => 'onKernelResponse', 'priority' => 0])
     ;

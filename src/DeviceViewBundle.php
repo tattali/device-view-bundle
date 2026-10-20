@@ -115,7 +115,10 @@ final class DeviceViewBundle extends AbstractBundle
             $remember['lifetime'],
             $remember['consented_lifetime'],
         ]);
-        $builder->getDefinition('device_view.remember_listener')->replaceArgument(4, $config['http_cache']['private_when_remembering']);
+        $builder->getDefinition('device_view.remember_listener')
+            ->replaceArgument(4, $config['http_cache']['private_when_remembering'])
+            ->replaceArgument(5, $tabletAsMobile)
+        ;
 
         $resolver = $config['services']['resolver'];
         if (null !== $resolver) {

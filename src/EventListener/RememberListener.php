@@ -9,6 +9,7 @@ use DeviceViewBundle\Remember\RememberPolicy;
 use DeviceViewBundle\Remember\RememberTrigger;
 use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
+use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
 use DeviceViewBundle\View\ViewSource;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,8 +19,9 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
 /**
  * Remembers the view on the response of the main request, on kernel.response at priority 0.
  *
- * A switch, or DeviceView::setView() asked to remember, plans a write with the switch trigger. A
- * view the request used and that came from the detector or the trusted header plans one with
+ * A switch, or DeviceView::setView() asked to remember, plans a write of its view with the switch
+ * trigger: that view is written, after tablet_as_mobile, even when the request uses another view.
+ * A view the request used and that came from the detector or the trusted header plans one with
  * the detected trigger. The remember policy decides whether the write happens and its lifetime;
  * DeviceView::setRemember(false) stops it. When nothing is written, a forged stored value is
  * expired. A response that writes or expires the stored value becomes private when
@@ -35,6 +37,7 @@ final readonly class RememberListener
         private RememberPolicy $policy,
         private ViewNames $names,
         private bool $privateWhenRemembering = true,
+        private bool $tabletAsMobile = false,
     ) {
     }
 
@@ -83,7 +86,11 @@ final readonly class RememberListener
             return false;
         }
 
-        $view = $context->resolve($this->resolver, $request)->view;
+        $view = $context->plannedView ?? $context->resolve($this->resolver, $request)->view;
+        if ($this->tabletAsMobile && DeviceType::Tablet === $view) {
+            $view = DeviceType::Mobile;
+        }
+
         $this->storage->write($request, $response, $this->names->nameOf($view), $lifetime);
 
         return true;
@@ -91,7 +98,7 @@ final readonly class RememberListener
 
     private function trigger(DeviceViewContext $context): ?RememberTrigger
     {
-        if ($context->switched || $context->rememberRequested) {
+        if (null !== $context->plannedView) {
             return RememberTrigger::Switch;
         }
 

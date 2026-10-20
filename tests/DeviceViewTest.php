@@ -125,11 +125,12 @@ final class DeviceViewTest extends TestCase
         $deviceView->setView('tablet', true);
 
         self::assertSame(DeviceType::Tablet, $context->forcedView);
-        self::assertTrue($context->rememberRequested);
+        self::assertSame(DeviceType::Tablet, $context->plannedView);
 
         $deviceView->setView('mobile');
 
-        self::assertFalse($context->rememberRequested);
+        self::assertSame(DeviceType::Mobile, $context->forcedView);
+        self::assertSame(DeviceType::Tablet, $context->plannedView, 'a view forced without remember is not planned');
     }
 
     public function testSetRememberSetsTheOverrideOfTheMainRequest(): void
@@ -170,7 +171,7 @@ final class DeviceViewTest extends TestCase
         $deviceView->setRemember(false);
 
         self::assertNull($context->forcedView);
-        self::assertFalse($context->rememberRequested);
+        self::assertNull($context->plannedView);
         self::assertNull($context->remember);
         self::assertSame(DeviceType::Tablet, $deviceView->getView(), 'reading still works');
         self::assertSame([
