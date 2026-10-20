@@ -109,7 +109,7 @@ final class DeviceViewBundle extends AbstractBundle
             $cookie['same_site'],
             $cookie['raw'],
         ]);
-        $builder->getDefinition('device_view.remember.policy')->setArguments([
+        $builder->getDefinition('device_view.remember_policy')->setArguments([
             $remember['on_switch'],
             $remember['detected_view'],
             $remember['lifetime'],

@@ -38,7 +38,7 @@ return static function (ContainerConfigurator $container): void {
                 new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
             ])
 
-        ->set('device_view.remember.policy', RememberPolicy::class)
+        ->set('device_view.remember_policy', RememberPolicy::class)
             ->args([
                 new AbstractArgument('remember.on_switch'),
                 new AbstractArgument('remember.detected_view'),
@@ -50,7 +50,7 @@ return static function (ContainerConfigurator $container): void {
             ->args([
                 new Reference('device_view.resolver'),
                 new Reference('device_view.storage'),
-                new Reference('device_view.remember.policy'),
+                new Reference('device_view.remember_policy'),
                 new Reference('device_view.view_names'),
                 new AbstractArgument('http_cache.private_when_remembering'),
             ])
