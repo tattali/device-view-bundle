@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockFileSessionStorage;
  * Remembering the view in the session (remember.storage: session), through the kernel, with the
  * framework session on the mock file storage.
  *
- * Rows that also expect a Vary header, need a consent provider or a route default stay planned;
+ * Rows that also expect a Vary header or need a route default stay planned;
  * the tests without a group check the rest of them.
  */
 final class SessionTest extends TestCase
@@ -83,7 +83,6 @@ final class SessionTest extends TestCase
 
     public function testLifetimesAreIgnored(): void
     {
-        // SES-04 without its consent provider, which a later change adds
         $this->bootWithSession(['lifetime' => 3600]);
 
         $response = $this->handle(self::request('/view?device_view=mobile'));
@@ -93,6 +92,31 @@ final class SessionTest extends TestCase
         self::assertSame(self::SESSION_NAME, $cookies[0]->getName());
         self::assertSame(0, $cookies[0]->getExpiresTime(), 'the framework\'s session cookie');
         self::assertSame(['_device_view' => 'mobile'], $this->sessionOf($response));
+    }
+
+    #[Group('SES-04')]
+    public function testTheConsentedLifetimeIsIgnored(): void
+    {
+        $this->bootWithSession(consent: ['provider' => 'tarteaucitron']);
+
+        $response = $this->handle(self::request('/view?device_view=mobile', cookies: ['tarteaucitron' => '!device_view=true']));
+
+        $cookies = $response->headers->getCookies();
+        self::assertCount(1, $cookies, 'no device_view cookie');
+        self::assertSame(self::SESSION_NAME, $cookies[0]->getName());
+        self::assertSame(0, $cookies[0]->getExpiresTime(), 'the framework\'s session cookie, unchanged');
+        self::assertSame(['_device_view' => 'mobile'], $this->sessionOf($response));
+    }
+
+    #[Group('SES-07')]
+    public function testADetectedViewWithConsentDeniedIsNotWritten(): void
+    {
+        $this->bootWithSession(['detected_view' => true], consent: ['provider' => 'tarteaucitron']);
+
+        $response = $this->handle(self::request('/view', 'iphone', cookies: ['tarteaucitron' => '!device_view=false']));
+
+        self::assertSame(200, $response->getStatusCode());
+        $this->assertNoSessionStarted($response);
     }
 
     #[Group('SES-05')]
@@ -199,11 +223,12 @@ final class SessionTest extends TestCase
     /**
      * @param array<string, mixed>        $remember the remember configuration added to storage: session
      * @param array<string, class-string> $services
+     * @param array<string, mixed>        $consent  the consent configuration
      */
-    private function bootWithSession(array $remember = [], array $services = []): void
+    private function bootWithSession(array $remember = [], array $services = [], array $consent = []): void
     {
         $this->boot(
-            ['remember' => ['storage' => 'session'] + $remember],
+            ['remember' => ['storage' => 'session'] + $remember, 'consent' => $consent],
             $services,
             ['session' => ['storage_factory_id' => 'session.storage.factory.mock_file']],
         );

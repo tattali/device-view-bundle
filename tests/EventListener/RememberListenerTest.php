@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Tests\EventListener;
 
+use DeviceViewBundle\Consent\ConsentCheckerInterface;
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\EventListener\RememberListener;
 use DeviceViewBundle\Remember\CookieStorage;
@@ -14,6 +15,8 @@ use DeviceViewBundle\Resolver\Step\ForcedStep;
 use DeviceViewBundle\Resolver\Step\RememberedStep;
 use DeviceViewBundle\Resolver\Step\SwitchStep;
 use DeviceViewBundle\Resolver\ViewResolver;
+use DeviceViewBundle\Tests\App\Consent\CountingConsentChecker;
+use DeviceViewBundle\Tests\App\Consent\HeaderConsent;
 use DeviceViewBundle\Tests\App\Detector\HeaderDetector;
 use DeviceViewBundle\Tests\App\Kernel;
 use DeviceViewBundle\Tests\App\Resolver\RecordingResolver;
@@ -304,6 +307,142 @@ final class RememberListenerTest extends TestCase
         self::assertTrue($context->responseBuilt);
     }
 
+    /**
+     * @return iterable<string, array{string|null, bool|null, int|null}>
+     */
+    public static function switchConsents(): iterable
+    {
+        yield 'granted' => ['yes', null, 3600];
+        yield 'denied' => ['no', null, 60];
+        yield 'unknown' => [null, null, 60];
+        yield 'denied, overridden to granted' => ['no', true, 3600];
+        yield 'granted, overridden to denied' => ['yes', false, 60];
+    }
+
+    #[DataProvider('switchConsents')]
+    public function testTheConsentGivesTheLifetimeOfASwitch(?string $header, ?bool $override, int $lifetime): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        if (null !== $header) {
+            $request->headers->set('X-Consent', $header);
+        }
+        $context->markSwitched(DeviceType::Tablet);
+        if (null !== $override) {
+            $context->setConsent($override);
+        }
+        $checker = new CountingConsentChecker(new HeaderConsent());
+
+        $response = self::respond(self::listener(self::consentPolicy(), consentChecker: $checker), $request);
+
+        $cookies = $response->headers->getCookies();
+        self::assertCount(1, $cookies);
+        self::assertEqualsWithDelta(time() + $lifetime, $cookies[0]->getExpiresTime(), 1);
+        self::assertSame(null === $override ? 1 : 0, $checker->calls, 'an override is not asked to the checker');
+    }
+
+    public function testWithoutACheckerTheOverrideGivesTheLifetime(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+        $context->setConsent(true);
+
+        $cookies = self::respond(self::listener(new RememberPolicy(lifetime: 60, consentedLifetime: 3600)), $request)->headers->getCookies();
+
+        self::assertCount(1, $cookies);
+        self::assertEqualsWithDelta(time() + 3600, $cookies[0]->getExpiresTime(), 1);
+    }
+
+    /**
+     * @return iterable<string, array{string|null, bool}>
+     */
+    public static function detectedConsents(): iterable
+    {
+        yield 'granted' => ['yes', true];
+        yield 'denied' => ['no', false];
+        yield 'unknown' => [null, false];
+    }
+
+    #[DataProvider('detectedConsents')]
+    public function testADetectedViewNeedsTheConsentWhenAProviderIsSet(?string $header, bool $written): void
+    {
+        [$request, $context] = self::request('/view');
+        if (null !== $header) {
+            $request->headers->set('X-Consent', $header);
+        }
+        $context->resolve(new RecordingResolver([new ResolvedView(DeviceType::Tablet, ViewSource::Detector)]), $request);
+        $response = new Response()->setPublic();
+
+        self::respond(self::listener(self::consentPolicy(), consentChecker: new HeaderConsent()), $request, $response);
+
+        self::assertSame($written ? ['device_view' => 'tablet'] : [], self::cookies($response));
+        self::assertSame($written, $response->headers->hasCacheControlDirective('private'));
+    }
+
+    /**
+     * @return iterable<string, array{\Closure(Request, DeviceViewContext): void, RememberPolicy}>
+     */
+    public static function noWrites(): iterable
+    {
+        yield 'nothing planned, nothing resolved' => [static function (): void {}, self::consentPolicy()];
+        yield 'a view the detector did not give' => [
+            static function (Request $request, DeviceViewContext $context): void {
+                $context->resolve(new RecordingResolver([new ResolvedView(DeviceType::Tablet, ViewSource::Default)]), $request);
+            },
+            self::consentPolicy(),
+        ];
+        yield 'setRemember(false)' => [
+            static function (Request $request, DeviceViewContext $context): void {
+                $context->markSwitched(DeviceType::Tablet);
+                $context->setRemember(false);
+            },
+            self::consentPolicy(),
+        ];
+        yield 'on_switch false' => [
+            static function (Request $request, DeviceViewContext $context): void {
+                $context->markSwitched(DeviceType::Tablet);
+            },
+            new RememberPolicy(onSwitch: false, detectedView: true, consentProvider: true),
+        ];
+        yield 'detected_view false' => [
+            static function (Request $request, DeviceViewContext $context): void {
+                $context->resolve(new RecordingResolver([new ResolvedView(DeviceType::Tablet, ViewSource::Detector)]), $request);
+            },
+            new RememberPolicy(onSwitch: true, detectedView: false, consentProvider: true),
+        ];
+    }
+
+    /**
+     * REM-26: the checker is asked only when a write is planned.
+     *
+     * @param \Closure(Request, DeviceViewContext): void $prepare
+     */
+    #[DataProvider('noWrites')]
+    public function testTheCheckerIsNotAskedWithoutAPlannedWrite(\Closure $prepare, RememberPolicy $policy): void
+    {
+        [$request, $context] = self::request('/view');
+        $request->headers->set('X-Consent', 'yes');
+        $prepare($request, $context);
+        $checker = new CountingConsentChecker(new HeaderConsent());
+
+        $response = self::respond(self::listener($policy, consentChecker: $checker), $request);
+
+        self::assertSame([], self::cookies($response));
+        self::assertSame(0, $checker->calls);
+    }
+
+    public function testASkippedRequestDoesNotAskTheChecker(): void
+    {
+        $request = Request::create('/view?device_view=tablet');
+        $context = new DeviceViewContext(skipped: true);
+        $request->attributes->set(DeviceViewContext::ATTRIBUTE, $context);
+        $context->markSwitched(DeviceType::Tablet);
+        $checker = new CountingConsentChecker(new HeaderConsent());
+
+        self::respond(self::listener(self::consentPolicy(), consentChecker: $checker), $request);
+
+        self::assertSame(0, $checker->calls);
+    }
+
     public function testARequestWithoutContextIsLeftAlone(): void
     {
         $request = Request::create('/view');
@@ -343,9 +482,17 @@ final class RememberListenerTest extends TestCase
         ]);
     }
 
-    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true, bool $tabletAsMobile = false, bool $withStorage = true): RememberListener
+    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true, bool $tabletAsMobile = false, bool $withStorage = true, ?ConsentCheckerInterface $consentChecker = null): RememberListener
     {
-        return new RememberListener(self::resolver($names), $withStorage ? new CookieStorage() : null, $policy, $names, $privateWhenRemembering, $tabletAsMobile);
+        return new RememberListener(self::resolver($names), $withStorage ? new CookieStorage() : null, $policy, $names, $privateWhenRemembering, $tabletAsMobile, $consentChecker);
+    }
+
+    /**
+     * A policy with a consent provider, which remembers switches and detected views.
+     */
+    private static function consentPolicy(): RememberPolicy
+    {
+        return new RememberPolicy(onSwitch: true, detectedView: true, lifetime: 60, consentedLifetime: 3600, consentProvider: true);
     }
 
     /**

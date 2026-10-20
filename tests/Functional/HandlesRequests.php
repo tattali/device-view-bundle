@@ -25,14 +25,15 @@ trait HandlesRequests
     }
 
     /**
-     * @param array<string, mixed>        $config    the device_view configuration
-     * @param array<string, class-string> $services  public services of the application, by id
-     * @param array<string, mixed>        $framework framework configuration added to the baseline
+     * @param array<string, mixed>                       $config     the device_view configuration
+     * @param array<string, class-string>                $services   public services of the application, by id
+     * @param array<string, mixed>                       $framework  framework configuration added to the baseline
+     * @param array<string, array{class-string, string}> $decorators public services decorating a service, by id: [class, decorated id]
      */
-    private function boot(array $config = [], array $services = [], array $framework = []): ContainerInterface
+    private function boot(array $config = [], array $services = [], array $framework = [], array $decorators = []): ContainerInterface
     {
         $this->kernel?->shutdown();
-        $this->kernel = new Kernel($config, services: $services, framework: $framework);
+        $this->kernel = new Kernel($config, services: $services, framework: $framework, decorators: $decorators);
         $this->kernel->boot();
 
         return $this->kernel->getContainer();

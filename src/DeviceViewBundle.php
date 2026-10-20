@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle;
 
+use DeviceViewBundle\Consent\ConsentCheckerInterface;
 use DeviceViewBundle\DependencyInjection\Compiler\CheckConfiguredServicesPass;
 use DeviceViewBundle\DependencyInjection\Compiler\CheckSessionStoragePass;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
@@ -51,6 +52,8 @@ final class DeviceViewBundle extends AbstractBundle
         $container->import('../config/resolver.php');
         $container->import('../config/switch.php');
         $container->import('../config/remember.php');
+        // the built-in consent readers, one file each: see builtInConsentReader()
+        $container->import('../config/consent/*.php');
 
         /** @var array{id: non-empty-string, mobile_detect: array{headers: non-empty-list<string>, cache: string|null}} $detector */
         $detector = $config['detector'];
@@ -78,7 +81,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -124,11 +127,13 @@ final class DeviceViewBundle extends AbstractBundle
         }
         $container->services()->alias('device_view.storage', $storage);
         $builder->setParameter(CheckSessionStoragePass::PARAMETER, 'session' === $remember['storage']);
+        $consent = $config['consent'];
         $builder->getDefinition('device_view.remember_policy')->setArguments([
             $remember['on_switch'],
             $remember['detected_view'],
             $remember['lifetime'],
             $remember['consented_lifetime'],
+            null !== $consent['provider'],
         ]);
         $builder->getDefinition('device_view.remember_listener')
             // nothing is remembered nor expired without a storage
@@ -136,6 +141,20 @@ final class DeviceViewBundle extends AbstractBundle
             ->replaceArgument(4, $config['http_cache']['private_when_remembering'])
             ->replaceArgument(5, $tabletAsMobile)
         ;
+
+        $provider = $consent['provider'];
+        if (null !== $provider) {
+            $checker = self::builtInConsentReader($builder, $provider, $consent['cookie'], $consent['key']);
+            if (null === $checker) {
+                self::assertNotTheAlias($provider, 'device_view.consent_checker', 'device_view.consent.provider');
+                $checks[] = [$provider, 'device_view.consent.provider', ConsentCheckerInterface::class];
+            }
+            // without a provider there is no checker, and the remember listener gets null
+            $container->services()
+                ->alias('device_view.consent_checker', $checker ?? $provider)
+                ->alias(ConsentCheckerInterface::class, 'device_view.consent_checker')
+            ;
+        }
 
         $resolver = $config['services']['resolver'];
         if (null !== $resolver) {
@@ -157,6 +176,32 @@ final class DeviceViewBundle extends AbstractBundle
         }
 
         throw new \LogicException('No device detector is installed. Run `composer require mobiledetect/mobiledetectlib` (or `matomo/device-detector`), or set `device_view.detector.id` to `client_hints` or to your own service id.');
+    }
+
+    /**
+     * The service of the built-in reader that consent.provider names, set up with consent.cookie
+     * and consent.key, or null when the provider is not the name of a built-in reader.
+     *
+     * The built-in readers form a registry with no shared list, so readers are added
+     * independently. To add the reader of a consent tool named <name>:
+     * 1. write its class in src/Consent: it implements ConsentCheckerInterface, never throws, and
+     *    its constructor takes ?string $cookie and ?string $key, null standing for the tool's
+     *    default cookie and key;
+     * 2. register it as the service device_view.consent.<name> in config/consent/<name>.php,
+     *    which loadExtension() imports with every file of that directory;
+     * 3. give it its own test files and fixtures (tests/Fixtures/consent/<name>/<version>), and
+     *    activate its rows in docs/scenarios.md.
+     */
+    private static function builtInConsentReader(ContainerBuilder $builder, string $provider, ?string $cookie, ?string $key): ?string
+    {
+        $id = 'device_view.consent.'.$provider;
+        if (!$builder->hasDefinition($id)) {
+            return null;
+        }
+
+        $builder->getDefinition($id)->setArgument('$cookie', $cookie)->setArgument('$key', $key);
+
+        return $id;
     }
 
     /**

@@ -1,0 +1,5 @@
+# source: tarteaucitron.cookie.create() and tarteaucitron.cookie.read() in tarteaucitron.js 1.37.0 (npm tarteaucitronjs 1.37.0): the cookie value is the previous value without "!<key>=(wait|true|false)", followed by "!<key>=<status>", status being true, false or wait
+# date: 2026-10-20
+# garbage: not written by tarteaucitron
+# hasConsent: null
+Cookie: tarteaucitron=!device_view=TRUE

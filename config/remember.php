@@ -49,6 +49,7 @@ return static function (ContainerConfigurator $container): void {
                 new AbstractArgument('remember.detected_view'),
                 new AbstractArgument('remember.lifetime'),
                 new AbstractArgument('remember.consented_lifetime'),
+                new AbstractArgument('whether consent.provider is set'),
             ])
 
         ->set('device_view.remember_listener', RememberListener::class)
@@ -59,6 +60,8 @@ return static function (ContainerConfigurator $container): void {
                 new Reference('device_view.view_names'),
                 new AbstractArgument('http_cache.private_when_remembering'),
                 new AbstractArgument('tablet_as_mobile'),
+                // set only when consent.provider is
+                new Reference('device_view.consent_checker', ContainerInterface::NULL_ON_INVALID_REFERENCE),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::RESPONSE, 'method' => 'onKernelResponse', 'priority' => 0])
     ;
