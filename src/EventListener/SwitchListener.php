@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace DeviceViewBundle\EventListener;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Redirect\RedirectPolicy;
+use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use DeviceViewBundle\ViewSwitch\SwitchTarget;
 use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 
 /**
@@ -18,14 +21,17 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * When the main request carries a valid switch parameter, the listener records the switch on
  * the context, which plans to remember its view, and, unless switch.target is none, answers with
  * a redirect to the switch target: the current page without the parameter, or the home page.
- * The redirect gets redirect.cache_control. The view itself comes from the resolver, whose switch
- * step reads the same parameter.
+ * When the view of the request is served on another host (device_view.redirect.<view>), the
+ * redirect goes to that host instead, as the redirect policy decides. The redirect gets
+ * redirect.cache_control. The view itself comes from the resolver, whose switch step reads the
+ * same parameter.
  */
 final readonly class SwitchListener
 {
     /**
-     * @param int         $status       the redirect status: 302, 303 or 307
-     * @param string|null $cacheControl the Cache-Control of the redirect, or null to leave it alone
+     * @param int                 $status       the redirect status: 302, 303 or 307
+     * @param string|null         $cacheControl the Cache-Control of the redirect, or null to leave it alone
+     * @param RedirectPolicy|null $hosts        the redirect policy of the views served on their own host, used with $resolver; without them the switch stays on the current host
      */
     public function __construct(
         private SwitchParameter $parameter,
@@ -33,6 +39,8 @@ final readonly class SwitchListener
         private SwitchTarget $target = SwitchTarget::Current,
         private int $status = 302,
         private ?string $cacheControl = 'no-store, private',
+        private ?RedirectPolicy $hosts = null,
+        private ?ViewResolverInterface $resolver = null,
     ) {
     }
 
@@ -58,11 +66,27 @@ final readonly class SwitchListener
             return;
         }
 
-        $response = new RedirectResponse($this->urls->redirectUrl($request, $this->target), $this->status);
+        // BeforeRedirectEvent, with the reason "switch", is dispatched here once it exists: it may
+        // change the URL or the status, or cancel the redirect and keep the switch
+        $response = new RedirectResponse($this->location($request, $context), $this->status);
         if (null !== $this->cacheControl) {
             $response->headers->set('Cache-Control', $this->cacheControl);
         }
 
         $event->setResponse($response);
+    }
+
+    /**
+     * The host of the view of the request when it is served on another host, else the switch
+     * target on the current host.
+     */
+    private function location(Request $request, DeviceViewContext $context): string
+    {
+        $url = null;
+        if (null !== $this->hosts && null !== $this->resolver && $this->hosts->hasRedirects()) {
+            $url = $this->hosts->switchUrl($request, $context->resolve($this->resolver, $request)->view, $this->target);
+        }
+
+        return $url ?? $this->urls->redirectUrl($request, $this->target);
     }
 }

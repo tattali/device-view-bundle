@@ -6,6 +6,10 @@ namespace DeviceViewBundle\Tests\EventListener;
 
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\EventListener\SwitchListener;
+use DeviceViewBundle\Redirect\RedirectAction;
+use DeviceViewBundle\Redirect\RedirectPolicy;
+use DeviceViewBundle\Resolver\Step\SwitchStep;
+use DeviceViewBundle\Resolver\ViewResolver;
 use DeviceViewBundle\Tests\App\Kernel;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
@@ -111,6 +115,55 @@ final class SwitchListenerTest extends TestCase
         self::listener()->onKernelRequest($event);
 
         self::assertNull($event->getResponse());
+    }
+
+    public function testASwitchToAViewOnAnotherHostGoesThere(): void
+    {
+        [$request, $context] = self::request('http://www.example.com/view?a=1&device_view=tablet');
+        $event = self::event($request);
+
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), status: 303, hosts: self::hosts(), resolver: new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))], tabletAsMobile: true))->onKernelRequest($event);
+
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('https://m.example.com/view?a=1&device_view=mobile', $response->getTargetUrl(), 'the host of the view the request resolves to');
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+        self::assertSame(DeviceType::Tablet, $context->plannedView);
+    }
+
+    public function testWithoutAResolverTheSwitchStaysOnTheCurrentHost(): void
+    {
+        [$request] = self::request('http://www.example.com/view?device_view=mobile');
+        $event = self::event($request);
+
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), hosts: self::hosts())->onKernelRequest($event);
+
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('/view', $response->getTargetUrl());
+    }
+
+    public function testWithoutRedirectsTheSwitchResolvesNothing(): void
+    {
+        [$request, $context] = self::request('http://www.example.com/view?device_view=mobile');
+        $event = self::event($request);
+
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), hosts: new RedirectPolicy([], new ViewNames(), new SwitchUrlGenerator()), resolver: new ViewResolver([]))->onKernelRequest($event);
+
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('/view', $response->getTargetUrl());
+        self::assertNull($context->resolved);
+    }
+
+    private static function hosts(): RedirectPolicy
+    {
+        return new RedirectPolicy(
+            ['mobile' => ['host' => 'https://m.example.com', 'action' => RedirectAction::Redirect, 'status' => 301, 'keep_query' => true]],
+            new ViewNames(),
+            new SwitchUrlGenerator(),
+        );
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Tests\ViewSwitch;
 
+use DeviceViewBundle\Redirect\RedirectHost;
 use DeviceViewBundle\ViewSwitch\SwitchTarget;
 use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -110,6 +111,27 @@ final class SwitchUrlGeneratorTest extends TestCase
 
         self::assertSame('/?device_view=mobile', $generator->switchUrl(null, SwitchTarget::Current, 'mobile'));
         self::assertSame('/?device_view=desktop', $generator->switchUrl(null, SwitchTarget::Home, 'desktop'));
+    }
+
+    public function testTheHostUrlKeepsThePathAndTheQueryByDefault(): void
+    {
+        $host = RedirectHost::parse('https://m.example.com/shop');
+        self::assertNotNull($host);
+        $request = self::appRequest('/app/blog/post?q=a+b&device_view=x&a=1');
+
+        self::assertSame('https://m.example.com/shop/blog/post?q=a%20b&a=1&device_view=m', new SwitchUrlGenerator()->hostUrl($request, $host, 'm'));
+    }
+
+    public function testTheHostUrlWithoutQueryOrPath(): void
+    {
+        $host = RedirectHost::parse('https://m.example.com');
+        self::assertNotNull($host);
+        $generator = new SwitchUrlGenerator('view');
+        $request = Request::create('http://www.example.com/blog/post?a=1&view=x');
+
+        self::assertSame('https://m.example.com/blog/post?view=mobile', $generator->hostUrl($request, $host, 'mobile', keepQuery: false));
+        self::assertSame('https://m.example.com/?view=mobile', $generator->hostUrl($request, $host, 'mobile', false));
+        self::assertSame('https://m.example.com/?view=mobile', $generator->hostUrl($request, $host, 'mobile', false, false));
     }
 
     private static function appRequest(string $uri): Request

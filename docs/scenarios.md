@@ -218,7 +218,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VW-09 | Renamed views: the canonical name is no longer a token | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=mobile` | 200 `"d detector"`, no `Set-Cookie` | active |
 | VW-10 | Renamed views: remembered | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=t` | 200 `"t remembered"` | active |
 | VW-11 | Renamed views: a stored canonical name is forged | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"d detector"`, `Set-Cookie: SC-DEL` | active |
-| VW-12 | Renamed views: cross-host redirect | `views: { names: { mobile: m } }`, `M` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=m` | planned |
+| VW-12 | Renamed views: cross-host redirect | `views: { names: { mobile: m } }`, `M` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=m` | active |
 | VW-13 | Renamed views: trusted header | `views: { names: { tablet: t } }`, `TH` | `GET /view`, `X-Device-View: t` | 200 `"t trusted_header"` | planned |
 | VW-14 | Renaming one view keeps the others | `views: { names: { mobile: phone } }` | `GET /view?device_view=tablet` | 302, `Location: /view`, `Set-Cookie: SC(tablet)` | active |
 
@@ -312,10 +312,10 @@ process with the package's autoloading removed.
 | SW-14 | `redirect.methods` also governs the switch | `redirect: { methods: [GET, POST] }` | `POST /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | active |
 | SW-15 | `cache_control: null` sets nothing; the cookie makes the redirect private | `redirect: { cache_control: null }` | `GET /view?device_view=mobile` | 302, `Set-Cookie: SC(mobile)`, `Cache-Control: private` (Symfony's computed `no-cache, private` is not a stored directive, so the `private_when_remembering` step leaves `private` only) | active |
 | SW-16 | Custom `cache_control` | `redirect: { cache_control: 'no-cache, no-store, must-revalidate' }` | `GET /view?device_view=mobile` | 302, `Cache-Control: must-revalidate, no-cache, no-store, private` (Symfony sorts the directives and adds `private`) | active |
-| SW-17 | Switch to a view served by another host | `M` | `GET http://www.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: https://m.example.com/blog/post?a=1&device_view=mobile`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)` | planned |
-| SW-18 | Switch arriving on the target host | `M` | `GET https://m.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: /blog/post?a=1`, `Set-Cookie: SCS(mobile)` | planned |
-| SW-19 | Switch back to desktop from the mobile host | `M`, `D` | `GET https://m.example.com/blog/post?device_view=desktop`, `UA=iphone` | 302, `Location: https://www.example.com/blog/post?device_view=desktop`, `Set-Cookie: SCS(desktop)` | planned |
-| SW-20 | The redirected view's host equals the current host | `M` | `GET https://m.example.com/view?device_view=mobile` | 302, relative `Location: /view` | planned |
+| SW-17 | Switch to a view served by another host | `M` | `GET http://www.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: https://m.example.com/blog/post?a=1&device_view=mobile`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)` | active |
+| SW-18 | Switch arriving on the target host | `M` | `GET https://m.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: /blog/post?a=1`, `Set-Cookie: SCS(mobile)` | active |
+| SW-19 | Switch back to desktop from the mobile host | `M`, `D` | `GET https://m.example.com/blog/post?device_view=desktop`, `UA=iphone` | 302, `Location: https://www.example.com/blog/post?device_view=desktop`, `Set-Cookie: SCS(desktop)` | active |
+| SW-20 | The redirected view's host equals the current host | `M` | `GET https://m.example.com/view?device_view=mobile` | 302, relative `Location: /view` | active |
 | SW-21 | A switch to the stored view is written again | — | `GET /view?device_view=mobile`, `Cookie: device_view=mobile` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | active |
 | SW-22 | Sub-requests never switch | — | `GET /with-sub-request?sub=%2Fview%3Fdevice_view%3Dtablet`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Set-Cookie`, no `Location` | active |
 
@@ -563,40 +563,40 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | RED-01 | Mobile redirect | `M` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?page=2&device_view=mobile`, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
-| RED-02 | Desktop redirect | `D` | `GET https://m.example.com/blog/post`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/blog/post?device_view=desktop`, `Cache-Control: NS` | planned |
-| RED-03 | Tablet redirect | `T` | `GET https://www.example.com/`, `UA=ipad_legacy` | 302, `Location: https://t.example.com/?device_view=tablet` | planned |
-| RED-04 | No redirect on the target host | `M` | `GET https://m.example.com/blog/post`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| RED-05 | No redirect for a view without one | `M` | `GET http://www.example.com/blog/post`, `UA=desktop_chrome` | 200 `"desktop detector"` | planned |
-| RED-06 | `action: redirect_without_path` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', action: redirect_without_path } }` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile` | planned |
-| RED-07 | `action: none` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', action: none } }` | `GET http://www.example.com/blog/post`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| RED-08 | `keep_query: false` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', keep_query: false } }` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | planned |
-| RED-09 | Base path in the host is kept | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/shop' } }` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/shop/blog/post?page=2&device_view=mobile` | planned |
-| RED-10 | Base path with `redirect_without_path` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/shop', action: redirect_without_path } }` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/shop/?device_view=mobile` | planned |
-| RED-11 | The current base URL is not carried | `M` | front controller `/app`: `GET http://www.example.com/app/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | planned |
-| RED-12 | Port in the host | `redirect: { mobile: { enabled: true, host: 'http://m.example.com:8080' } }` | `GET http://m.example.com/`, `UA=iphone` | 302, `Location: http://m.example.com:8080/?device_view=mobile` | planned |
-| RED-13 | Same host and port | `redirect: { mobile: { enabled: true, host: 'http://m.example.com:8080' } }` | `GET http://m.example.com:8080/view`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| RED-14 | Default port in the host | `redirect: { mobile: { enabled: true, host: 'https://m.example.com:443' } }` | `GET https://m.example.com/view` `UA=iphone`; then `GET http://www.example.com/` `UA=iphone` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/?device_view=mobile` | planned |
-| RED-15 | Host case is ignored | `M` | `GET https://M.Example.COM/view`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| RED-16 | Trailing dot of the request host is ignored | `M` | `GET https://m.example.com./view`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| RED-17 | Trailing dot and slash of the configured host are ignored | `redirect: { mobile: { enabled: true, host: 'https://m.example.com./' } }` | `GET https://m.example.com/view` `UA=iphone`; then `GET http://www.example.com/blog/post` `UA=iphone` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/blog/post?device_view=mobile` | planned |
+| RED-02 | Desktop redirect | `D` | `GET https://m.example.com/blog/post`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/blog/post?device_view=desktop`, `Cache-Control: NS` | active |
+| RED-03 | Tablet redirect | `T` | `GET https://www.example.com/`, `UA=ipad_legacy` | 302, `Location: https://t.example.com/?device_view=tablet` | active |
+| RED-04 | No redirect on the target host | `M` | `GET https://m.example.com/blog/post`, `UA=iphone` | 200 `"mobile detector"` | active |
+| RED-05 | No redirect for a view without one | `M` | `GET http://www.example.com/blog/post`, `UA=desktop_chrome` | 200 `"desktop detector"` | active |
+| RED-06 | `action: redirect_without_path` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', action: redirect_without_path } }` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile` | active |
+| RED-07 | `action: none` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', action: none } }` | `GET http://www.example.com/blog/post`, `UA=iphone` | 200 `"mobile detector"` | active |
+| RED-08 | `keep_query: false` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', keep_query: false } }` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
+| RED-09 | Base path in the host is kept | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/shop' } }` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/shop/blog/post?page=2&device_view=mobile` | active |
+| RED-10 | Base path with `redirect_without_path` | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/shop', action: redirect_without_path } }` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/shop/?device_view=mobile` | active |
+| RED-11 | The current base URL is not carried | `M` | front controller `/app`: `GET http://www.example.com/app/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
+| RED-12 | Port in the host | `redirect: { mobile: { enabled: true, host: 'http://m.example.com:8080' } }` | `GET http://m.example.com/`, `UA=iphone` | 302, `Location: http://m.example.com:8080/?device_view=mobile` | active |
+| RED-13 | Same host and port | `redirect: { mobile: { enabled: true, host: 'http://m.example.com:8080' } }` | `GET http://m.example.com:8080/view`, `UA=iphone` | 200 `"mobile detector"` | active |
+| RED-14 | Default port in the host | `redirect: { mobile: { enabled: true, host: 'https://m.example.com:443' } }` | `GET https://m.example.com/view` `UA=iphone`; then `GET http://www.example.com/` `UA=iphone` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/?device_view=mobile` | active |
+| RED-15 | Host case is ignored | `M` | `GET https://M.Example.COM/view`, `UA=iphone` | 200 `"mobile detector"` | active |
+| RED-16 | Trailing dot of the request host is ignored | `M` | `GET https://m.example.com./view`, `UA=iphone` | 200 `"mobile detector"` | active |
+| RED-17 | Trailing dot and slash of the configured host are ignored | `redirect: { mobile: { enabled: true, host: 'https://m.example.com./' } }` | `GET https://m.example.com/view` `UA=iphone`; then `GET http://www.example.com/blog/post` `UA=iphone` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
 | RED-18 | Status 301 | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
-| RED-19 | Status 308 | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 308 } }` | `GET http://www.example.com/`, `UA=iphone` | 308, `Location: https://m.example.com/?device_view=mobile` | planned |
-| RED-20 | POST is not redirected | `M` | `POST http://www.example.com/form`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| RED-21 | HEAD is redirected | `M` | `HEAD http://www.example.com/form`, `UA=iphone` | 302, `Location: https://m.example.com/form?device_view=mobile` | planned |
-| RED-22 | Custom methods | `M`, `redirect: { methods: [GET] }` | `HEAD http://www.example.com/form`, `UA=iphone` | 200 | planned |
-| RED-23 | `cache_control: null` | `M`, `redirect: { cache_control: null }` | `GET http://www.example.com/`, `UA=iphone` | 302, `Cache-Control: no-cache, private` | planned |
+| RED-19 | Status 308 | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 308 } }` | `GET http://www.example.com/`, `UA=iphone` | 308, `Location: https://m.example.com/?device_view=mobile` | active |
+| RED-20 | POST is not redirected | `M` | `POST http://www.example.com/form`, `UA=iphone` | 200 `"mobile detector"` | active |
+| RED-21 | HEAD is redirected | `M` | `HEAD http://www.example.com/form`, `UA=iphone` | 302, `Location: https://m.example.com/form?device_view=mobile` | active |
+| RED-22 | Custom methods | `M`, `redirect: { methods: [GET] }` | `HEAD http://www.example.com/form`, `UA=iphone` | 200 | active |
+| RED-23 | `cache_control: null` | `M`, `redirect: { cache_control: null }` | `GET http://www.example.com/`, `UA=iphone` | 302, `Cache-Control: no-cache, private` | active |
 | RED-24 | A remembered view decides the redirect | `D` | `GET https://m.example.com/`, `Cookie: device_view=desktop`, `UA=iphone` | 302, `Location: https://www.example.com/?device_view=desktop`, `Vary: [Cookie]` | planned |
-| RED-25 | The query is encoded with RFC 3986 | `M` | `GET http://www.example.com/blog/post?q=a+b`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?q=a%20b&device_view=mobile` | planned |
-| RED-26 | Host from a valid env var | `redirect: { mobile: { enabled: true, host: '%env(DV_MOBILE_HOST)%' } }`, `DV_MOBILE_HOST=https://m.example.com` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | planned |
-| RED-27 | Host from an invalid env var | as RED-26 with `DV_MOBILE_HOST=m.example.com` | `GET http://www.example.com/view`, `UA=iphone` | 200 `"mobile detector"`; error log `The redirect host "m.example.com" of the mobile view is invalid: expected an absolute http(s) URL without query, fragment or user info. The mobile redirect is disabled.` | planned |
-| RED-28 | Cross-host warning without a cookie domain | `M` | `GET http://www.example.com/`, `UA=iphone` | 302; warning log `The mobile redirect goes to m.example.com, but the device_view cookie has no domain, so that host cannot read the remembered view. Set device_view.remember.cookie.domain to a domain both hosts share.` | planned |
-| RED-29 | No warning with a cookie domain | `M`, `remember: { cookie: { domain: .example.com } }` | `GET http://www.example.com/`, `UA=iphone` | 302; no warning log | planned |
-| RED-30 | No warning without cookie storage | `M`, `remember: { storage: session }` | `GET http://www.example.com/`, `UA=iphone` | 302; no warning log | planned |
-| RED-31 | The Host header never reaches `Location` | `M` | `GET http://evil.example/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | planned |
-| RED-32 | Sub-requests are never redirected | `M` | `GET https://m.example.com/with-sub-request?sub=http%3A%2F%2Fwww.example.com%2Fview`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Location` | planned |
-| RED-33 | Disabled redirects leave the view lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary` | planned |
+| RED-25 | The query is encoded with RFC 3986 | `M` | `GET http://www.example.com/blog/post?q=a+b`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?q=a%20b&device_view=mobile` | active |
+| RED-26 | Host from a valid env var | `redirect: { mobile: { enabled: true, host: '%env(DV_MOBILE_HOST)%' } }`, `DV_MOBILE_HOST=https://m.example.com` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
+| RED-27 | Host from an invalid env var | as RED-26 with `DV_MOBILE_HOST=m.example.com` | `GET http://www.example.com/view`, `UA=iphone` | 200 `"mobile detector"`; error log `The redirect host "m.example.com" of the mobile view is invalid: expected an absolute http(s) URL without query, fragment or user info. The mobile redirect is disabled.` | active |
+| RED-28 | Cross-host warning without a cookie domain | `M` | `GET http://www.example.com/`, `UA=iphone` | 302; warning log `The mobile redirect goes to m.example.com, but the device_view cookie has no domain, so that host cannot read the remembered view. Set device_view.remember.cookie.domain to a domain both hosts share.` | active |
+| RED-29 | No warning with a cookie domain | `M`, `remember: { cookie: { domain: .example.com } }` | `GET http://www.example.com/`, `UA=iphone` | 302; no warning log | active |
+| RED-30 | No warning without cookie storage | `M`, `remember: { storage: session }` | `GET http://www.example.com/`, `UA=iphone` | 302; no warning log | active |
+| RED-31 | The Host header never reaches `Location` | `M` | `GET http://evil.example/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
+| RED-32 | Sub-requests are never redirected | `M` | `GET https://m.example.com/with-sub-request?sub=http%3A%2F%2Fwww.example.com%2Fview`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Location` | active |
+| RED-33 | Disabled redirects leave the view lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary` | active |
 | RED-34 | Enabled redirects resolve the view | `M` | `GET https://m.example.com/`, `UA=iphone` | 200 `"home page"`, `Vary: [Cookie, User-Agent]` | planned |
-| RED-35 | The host forwarded by a trusted proxy is the current host | `M` | trusted proxy `127.0.0.1` with the `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto` headers (Conventions, Trusted proxies); `GET http://10.0.0.5/view`, `X-Forwarded-Host: m.example.com`, `X-Forwarded-Proto: https`, `UA=iphone`; then the same request with `REMOTE_ADDR: 203.0.113.9` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/view?device_view=mobile` (an untrusted client's forwarded host is ignored) | planned |
+| RED-35 | The host forwarded by a trusted proxy is the current host | `M` | trusted proxy `127.0.0.1` with the `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto` headers (Conventions, Trusted proxies); `GET http://10.0.0.5/view`, `X-Forwarded-Host: m.example.com`, `X-Forwarded-Proto: https`, `UA=iphone`; then the same request with `REMOTE_ADDR: 203.0.113.9` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/view?device_view=mobile` (an untrusted client's forwarded host is ignored) | active |
 
 ## 12. Per-route overrides (RTE), design.md sections 4 and 7
 
@@ -830,15 +830,15 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-30 | `storage: none` with a consent provider | `remember: { storage: none }`, `TAC` | container build | message contains `device_view.consent.provider cannot be set when device_view.remember.storage is "none".` | active |
 | CFG-31 | `consent.provider` service | `consent: { provider: app.not_a_checker }` | container build | message contains `The service "app.not_a_checker" set in device_view.consent.provider must implement DeviceViewBundle\Consent\ConsentCheckerInterface.` | active |
 | CFG-32 | Consent key not empty | `consent: { provider: tarteaucitron, key: '' }` | container build | message contains `device_view.consent.key must be null or a non-empty string, got "".` | active |
-| CFG-33 | Host required | `redirect: { mobile: { enabled: true } }` | container build | message contains `device_view.redirect.mobile.host is required when the mobile redirect is enabled.` | planned |
-| CFG-34 | Host must be absolute | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | message contains `device_view.redirect.mobile.host "m.example.com" must be an absolute http(s) URL with a host, an optional port and an optional path, and no query, fragment or user info.` | planned |
-| CFG-35 | Host without query | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/?a=1' } }` | container build | the CFG-34 message for `"https://m.example.com/?a=1"` | planned |
-| CFG-36 | Host without fragment | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/#top' } }` | container build | the CFG-34 message for that value | planned |
-| CFG-37 | Host without user info | `redirect: { mobile: { enabled: true, host: 'https://user:pass@m.example.com' } }` | container build | the CFG-34 message for that value | planned |
-| CFG-38 | Host scheme | `redirect: { mobile: { enabled: true, host: 'ftp://m.example.com' } }` | container build | the CFG-34 message for that value | planned |
-| CFG-39 | Host from an env var is checked at runtime only | `redirect: { mobile: { enabled: true, host: '%env(DV_MOBILE_HOST)%' } }` | container build | builds (see RED-26 and RED-27) | planned |
-| CFG-40 | Redirect action enum | `redirect: { mobile: { action: back } }` | container build | message contains `The value "back" is not allowed for path "device_view.redirect.mobile.action"` | planned |
-| CFG-41 | Device redirect status set | `redirect: { mobile: { status: 304 } }` | container build | message contains `The value 304 is not allowed for path "device_view.redirect.mobile.status"` | planned |
+| CFG-33 | Host required | `redirect: { mobile: { enabled: true } }` | container build | message contains `device_view.redirect.mobile.host is required when the mobile redirect is enabled.` | active |
+| CFG-34 | Host must be absolute | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | message contains `device_view.redirect.mobile.host "m.example.com" must be an absolute http(s) URL with a host, an optional port and an optional path, and no query, fragment or user info.` | active |
+| CFG-35 | Host without query | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/?a=1' } }` | container build | the CFG-34 message for `"https://m.example.com/?a=1"` | active |
+| CFG-36 | Host without fragment | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/#top' } }` | container build | the CFG-34 message for that value | active |
+| CFG-37 | Host without user info | `redirect: { mobile: { enabled: true, host: 'https://user:pass@m.example.com' } }` | container build | the CFG-34 message for that value | active |
+| CFG-38 | Host scheme | `redirect: { mobile: { enabled: true, host: 'ftp://m.example.com' } }` | container build | the CFG-34 message for that value | active |
+| CFG-39 | Host from an env var is checked at runtime only | `redirect: { mobile: { enabled: true, host: '%env(DV_MOBILE_HOST)%' } }` | container build | builds (see RED-26 and RED-27) | active |
+| CFG-40 | Redirect action enum | `redirect: { mobile: { action: back } }` | container build | message contains `The value "back" is not allowed for path "device_view.redirect.mobile.action"` | active |
+| CFG-41 | Device redirect status set | `redirect: { mobile: { status: 304 } }` | container build | message contains `The value 304 is not allowed for path "device_view.redirect.mobile.status"` | active |
 | CFG-42 | Redirect methods not empty | `redirect: { methods: [] }` | container build | message contains `device_view.redirect.methods must list at least one method.` | active |
 | CFG-43 | Skip path regex | `skip: { paths: ['^/(api'] }` | container build | message contains `device_view.skip.paths contains an invalid regular expression: "^/(api".` | planned |
 | CFG-44 | Trusted header name | `trusted_header: { name: 'X Device' }` | container build | message contains `device_view.trusted_header.name "X Device" is not a valid header name.` | planned |
@@ -899,23 +899,23 @@ One named test per bug of the old bundle. Each also passes on every line.
 |---|---|---|---|---|---|
 | REG-01 | Custom cookie name honoured on read | `remember: { cookie: { name: dv } }` | `GET /view`, `Cookie: dv=mobile`, `UA=desktop_chrome` | 200 `"mobile remembered"` | active |
 | REG-02 | Custom switch parameter honoured | `switch: { parameter: view }` | `GET /view?view=mobile` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | active |
-| REG-03 | `not_mobile` cannot bypass a redirect | `M` | `GET http://www.example.com/?device_view=not_mobile`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile` | planned |
-| REG-04 | Array parameter is harmless | `M` | `GET http://www.example.com/?device_view[]=x`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile`, no error | planned |
+| REG-03 | `not_mobile` cannot bypass a redirect | `M` | `GET http://www.example.com/?device_view=not_mobile`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile` | active |
+| REG-04 | Array parameter is harmless | `M` | `GET http://www.example.com/?device_view[]=x`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile`, no error | active |
 | REG-05 | Garbage parameter is harmless | — | `GET /view?device_view=%00%FF` | 200 `"desktop detector"`, no `Set-Cookie` | planned |
-| REG-06 | Host case causes no loop | `M` | `GET https://M.EXAMPLE.COM/`, `UA=iphone` | 200 | planned |
-| REG-07 | Host port causes no loop | `redirect: { mobile: { enabled: true, host: 'https://m.example.com:443' } }` | `GET https://m.example.com/`, `UA=iphone` | 200 | planned |
-| REG-08 | Trailing dot causes no loop | `M` | `GET https://m.example.com./`, `UA=iphone` | 200 | planned |
-| REG-09 | Trailing slash in the configured host causes no loop | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/' } }` | `GET https://m.example.com/` `UA=iphone`; then `GET http://www.example.com/` `UA=iphone` | 200; then 302, `Location: https://m.example.com/?device_view=mobile` | planned |
-| REG-10 | Following redirects ends | `M`, `D` | from `GET http://www.example.com/blog/post` `UA=iphone`, follow each `Location` with the cookies received, at most 5 times | ends with 200 `"mobile remembered"` on `https://m.example.com/blog/post` after 2 redirects | planned |
-| REG-11 | Spoofed Host never reaches `Location` | `M` | `GET /blog/post` with `Host: evil.example`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | planned |
-| REG-12 | POST is never redirected | `M` | `POST http://www.example.com/form?device_view=desktop`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
+| REG-06 | Host case causes no loop | `M` | `GET https://M.EXAMPLE.COM/`, `UA=iphone` | 200 | active |
+| REG-07 | Host port causes no loop | `redirect: { mobile: { enabled: true, host: 'https://m.example.com:443' } }` | `GET https://m.example.com/`, `UA=iphone` | 200 | active |
+| REG-08 | Trailing dot causes no loop | `M` | `GET https://m.example.com./`, `UA=iphone` | 200 | active |
+| REG-09 | Trailing slash in the configured host causes no loop | `redirect: { mobile: { enabled: true, host: 'https://m.example.com/' } }` | `GET https://m.example.com/` `UA=iphone`; then `GET http://www.example.com/` `UA=iphone` | 200; then 302, `Location: https://m.example.com/?device_view=mobile` | active |
+| REG-10 | Following redirects ends | `M`, `D` | from `GET http://www.example.com/blog/post` `UA=iphone`, follow each `Location` with the cookies received, at most 5 times | ends with 200 `"mobile remembered"` on `https://m.example.com/blog/post` after 2 redirects | active |
+| REG-11 | Spoofed Host never reaches `Location` | `M` | `GET /blog/post` with `Host: evil.example`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
+| REG-12 | POST is never redirected | `M` | `POST http://www.example.com/form?device_view=desktop`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
 | REG-13 | `/_fragment` gets no cookie and no redirect | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
 | REG-14 | Redirects are not cacheable | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
 | REG-15 | Route override without loading the route collection | `M`, the router's `getRouteCollection()` throws | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | planned |
-| REG-16 | Invalid config fails at build, not at request time | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | `InvalidConfigurationException` (CFG-34) before any request | planned |
+| REG-16 | Invalid config fails at build, not at request time | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | `InvalidConfigurationException` (CFG-34) before any request | active |
 | REG-17 | No cookie on a first visit | — | `GET /view`, `UA=iphone`, no cookie | 200 `"mobile detector"`, no `Set-Cookie` | active |
-| REG-18 | The desktop redirect works | `D` | `GET https://m.example.com/`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/?device_view=desktop` | planned |
-| REG-19 | A view never leaks to the next request | `M`, `D` | one kernel: `GET https://m.example.com/view?device_view=desktop` `UA=iphone`, then `GET https://m.example.com/view` `UA=iphone` with no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`; second response: 200 `"mobile detector"`, no `Location` (a leaked desktop view would redirect to `www`) | planned |
+| REG-18 | The desktop redirect works | `D` | `GET https://m.example.com/`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/?device_view=desktop` | active |
+| REG-19 | A view never leaks to the next request | `M`, `D` | one kernel: `GET https://m.example.com/view?device_view=desktop` `UA=iphone`, then `GET https://m.example.com/view` `UA=iphone` with no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`; second response: 200 `"mobile detector"`, no `Location` (a leaked desktop view would redirect to `www`) | active |
 
 ## 29. Test helpers (TST), design.md section 10
 
@@ -1022,4 +1022,19 @@ the area; if the owner disagrees, the rows change before they become active.
 - Trusted proxies stay out of the Config cell, which holds `device_view` keys only; 3.x and 4.x
   set them with `Request::setTrustedProxies()` in the test front controller (Conventions,
   Trusted proxies; `TH` rows, RED-35).
+- A switch to a view served on another host goes where a device redirect of that view would go,
+  with the switch status: `action: redirect` keeps the path and, with `keep_query`, the other
+  query parameters (SW-17); `action: redirect_without_path` and `switch.target: home` go to the
+  home page of that host; `action: none` keeps the switch on the current host. The view is the
+  one the request resolves to, so with `tablet_as_mobile` a switch to tablet goes to the mobile
+  host.
+- Hosts are compared without their scheme: `http://m.example.com` and `https://m.example.com`
+  are the same host, each with its own default port, so a site behind a TLS proxy that is not
+  trusted is not redirected in a loop.
+- The cross-host warning (RED-28) is logged on every redirect to another host, device redirect
+  or switch, while `remember.storage` is `cookie` and `remember.cookie.domain` is `null`.
+- A host that holds an env var is checked on each request that would use it, so an invalid one
+  logs the RED-27 error on each of them (services keep no state).
+- With `cache_control: null`, a redirect with status 301 has no `Cache-Control` at all: Symfony's
+  `RedirectResponse` removes it on a 301 that sets none.
 - The exception and log messages of the rows above.

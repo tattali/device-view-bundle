@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\ViewSwitch;
 
+use DeviceViewBundle\Redirect\RedirectHost;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Builds the relative URLs of the switch: the links that switch the view, and the Location of
- * the redirect that follows a switch.
+ * Builds the URLs of the switch: the links that switch the view, the Location of the redirect
+ * that follows a switch, and the absolute URLs that carry the view to the host it is served on.
  *
- * A URL is the base URL of the request, then the path info (or "/" for the home page), then the
- * query rebuilt from the request's query parameters with "&" and RFC 3986 encoding, in their
- * order. Nothing comes from the Host header.
+ * A relative URL is the base URL of the request, then the path info (or "/" for the home page),
+ * then the query rebuilt from the request's query parameters with "&" and RFC 3986 encoding, in
+ * their order. An absolute URL starts with the configured host instead of the base URL. Nothing
+ * comes from the Host header.
  *
  * @internal
  */
@@ -49,6 +51,21 @@ final readonly class SwitchUrlGenerator
         $query = SwitchTarget::Home === $target ? '' : self::query($this->otherParameters($request));
 
         return '' === $query ? $path : $path.'?'.$query;
+    }
+
+    /**
+     * The absolute URL of the page on the host, carrying the view in the switch parameter so the
+     * host knows the choice: the host and its base path, then the path info and, when
+     * $keepQuery, the other query parameters, or "/" without $withPath.
+     *
+     * @param string $name the name of the view
+     */
+    public function hostUrl(Request $request, RedirectHost $host, string $name, bool $withPath = true, bool $keepQuery = true): string
+    {
+        $query = $withPath && $keepQuery ? $this->otherParameters($request) : [];
+        $query[$this->parameter] = $name;
+
+        return $host->url(($withPath ? $request->getPathInfo() : '/').'?'.self::query($query));
     }
 
     /**
