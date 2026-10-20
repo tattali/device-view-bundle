@@ -1,0 +1,6 @@
+# source: the didomi_token cookie as Didomi documents it, base64 of a JSON object with user_id, created, updated, vendors.enabled/disabled, purposes.enabled/disabled, vendors_li, purposes_li and version: https://support.didomi.io/didomi-cookies-storage-1 and https://docs.didomi.io/get-started/general/cookies-and-local-storage (read 2026-10-20)
+# date: 2026-10-20
+# the same token percent-encoded (%2B, %3D)
+# json: {"user_id":"0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f00","purposes":{"enabled":["device_view"],"disabled":[]},"vendors":{"enabled":["c:dv~test"],"disabled":[]},"version":2}
+# hasConsent: true
+Cookie: didomi_token=eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2VzIjp7ImVuYWJsZWQiOlsiZGV2aWNlX3ZpZXciXSwiZGlzYWJsZWQiOltdfSwidmVuZG9ycyI6eyJlbmFibGVkIjpbImM6ZHZ%2BdGVzdCJdLCJkaXNhYmxlZCI6W119LCJ2ZXJzaW9uIjoyfQ%3D%3D

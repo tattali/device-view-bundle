@@ -1,0 +1,5 @@
+# source: the didomi_token cookie as Didomi documents it, base64 of a JSON object with user_id, created, updated, vendors.enabled/disabled, purposes.enabled/disabled, vendors_li, purposes_li and version: https://support.didomi.io/didomi-cookies-storage-1 and https://docs.didomi.io/get-started/general/cookies-and-local-storage (read 2026-10-20)
+# date: 2026-10-20
+# garbage: not written by Didomi
+# hasConsent: null
+Cookie: didomi_token=

@@ -538,18 +538,18 @@ the value PHP gives after decoding the cookie.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-DID-01 | Purpose enabled | `didomi` | `Cookie: didomi_token=B64(G)` | `hasConsent` true | planned |
-| CON-DID-02 | Purpose disabled | `didomi` | `G` with `"purposes":{"enabled":[],"disabled":["device_view"]}` | `hasConsent` false | planned |
-| CON-DID-03 | Purpose in neither list | `didomi` | `G` with `"purposes":{"enabled":["other"],"disabled":[]}` | `hasConsent` null | planned |
-| CON-DID-04 | URL-safe base64 without padding | `didomi` | `B64(G)` with `+` → `-`, `/` → `_` and the `=` removed | `hasConsent` true | planned |
-| CON-DID-05 | `+` read back from a space | `didomi` | `Cookie: didomi_token=` the token below with every `+` replaced by a space (what PHP gives for a raw `+`) | `hasConsent` true | planned |
-| CON-DID-06 | Vendor key, enabled | `consent: { provider: didomi, key: 'vendors:c:analytics' }` | `B64(G)` | `hasConsent` true | planned |
-| CON-DID-07 | Vendor key, disabled | `consent: { provider: didomi, key: 'vendors:c:ads' }` | `B64(G)` | `hasConsent` false | planned |
-| CON-DID-08 | Not base64 | `didomi` | `Cookie: didomi_token=***` | `hasConsent` null | planned |
-| CON-DID-09 | Base64 of something that is not JSON | `didomi` | `Cookie: didomi_token=bm90IGpzb24=` | `hasConsent` null | planned |
-| CON-DID-10 | No cookie | `didomi` | no cookie | `hasConsent` null | planned |
-| CON-DID-11 | Array cookie | `didomi` | cookie `didomi_token` = `['purposes' => 'x']` | `hasConsent` null, no error | planned |
-| CON-DID-12 | Custom cookie name | `consent: { provider: didomi, cookie: didomi_site }` | `Cookie: didomi_site=B64(G)` | `hasConsent` true | planned |
+| CON-DID-01 | Purpose enabled | `didomi` | `Cookie: didomi_token=B64(G)` | `hasConsent` true | active |
+| CON-DID-02 | Purpose disabled | `didomi` | `G` with `"purposes":{"enabled":[],"disabled":["device_view"]}` | `hasConsent` false | active |
+| CON-DID-03 | Purpose in neither list | `didomi` | `G` with `"purposes":{"enabled":["other"],"disabled":[]}` | `hasConsent` null | active |
+| CON-DID-04 | URL-safe base64 without padding | `didomi` | `B64(G)` with `+` → `-`, `/` → `_` and the `=` removed | `hasConsent` true | active |
+| CON-DID-05 | `+` read back from a space | `didomi` | `Cookie: didomi_token=` the token below with every `+` replaced by a space (what PHP gives for a raw `+`) | `hasConsent` true | active |
+| CON-DID-06 | Vendor key, enabled | `consent: { provider: didomi, key: 'vendors:c:analytics' }` | `B64(G)` | `hasConsent` true | active |
+| CON-DID-07 | Vendor key, disabled | `consent: { provider: didomi, key: 'vendors:c:ads' }` | `B64(G)` | `hasConsent` false | active |
+| CON-DID-08 | Not base64 | `didomi` | `Cookie: didomi_token=***` | `hasConsent` null | active |
+| CON-DID-09 | Base64 of something that is not JSON | `didomi` | `Cookie: didomi_token=bm90IGpzb24=` | `hasConsent` null | active |
+| CON-DID-10 | No cookie | `didomi` | no cookie | `hasConsent` null | active |
+| CON-DID-11 | Array cookie | `didomi` | cookie `didomi_token` = `['purposes' => 'x']` | `hasConsent` null, no error | active |
+| CON-DID-12 | Custom cookie name | `consent: { provider: didomi, cookie: didomi_site }` | `Cookie: didomi_site=B64(G)` | `hasConsent` true | active |
 
 The token with `+` and `=` used by CON-DID-05 and HTTP-03 (the base64 of
 `{"user_id":"0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f00","purposes":{"enabled":["device_view"],"disabled":[]},"vendors":{"enabled":["c:dv~test"],"disabled":[]},"version":2}`):
