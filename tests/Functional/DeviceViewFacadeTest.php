@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Functional;
 
 use DeviceViewBundle\DeviceView;
+use DeviceViewBundle\Tests\App\ControllerCall;
 use DeviceViewBundle\Tests\App\Detector\CountingDetector;
 use DeviceViewBundle\Tests\App\TestLogger;
 use DeviceViewBundle\View\DeviceType;
@@ -12,10 +13,8 @@ use DeviceViewBundle\View\ViewSource;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
  * The DeviceView facade, through the kernel.
@@ -309,20 +308,16 @@ final class DeviceViewFacadeTest extends TestCase
      */
     private function duringRequest(Request $request, \Closure $calls): array
     {
-        $deviceView = $this->deviceView();
-        $results = null;
-        $dispatcher = $this->service('event_dispatcher');
-        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
-        $dispatcher->addListener(KernelEvents::CONTROLLER, static function () use ($deviceView, $calls, &$results): void {
-            $results = $calls($deviceView);
-        });
+        $controllerCall = $this->service(ControllerCall::class);
+        self::assertInstanceOf(ControllerCall::class, $controllerCall);
+        $controllerCall->calls = $calls;
 
         $response = $this->handle($request, false);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertIsArray($results);
+        self::assertIsArray($controllerCall->results);
 
-        return $results;
+        return $controllerCall->results;
     }
 
     private function deviceView(): DeviceView
