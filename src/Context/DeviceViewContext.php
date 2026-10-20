@@ -49,6 +49,29 @@ final class DeviceViewContext
      */
     public private(set) bool $switched = false;
 
+    /**
+     * Whether DeviceView::setView() asked to remember the forced view, which plans a write with
+     * the switch trigger.
+     */
+    public private(set) bool $rememberRequested = false;
+
+    /**
+     * The override set with DeviceView::setRemember(): false stops any write, true lets the
+     * remember policy decide; null when it was not called.
+     */
+    public private(set) ?bool $remember = null;
+
+    /**
+     * Whether the remember storage holds a string that is not a view name, which the response
+     * expires.
+     */
+    public private(set) bool $forgedStoredValue = false;
+
+    /**
+     * Whether the response listener ran: DeviceView ignores changes from then on.
+     */
+    public private(set) bool $responseBuilt = false;
+
     private bool $switchRead = false;
 
     /**
@@ -97,10 +120,34 @@ final class DeviceViewContext
     /**
      * Forces the view: the next read resolves again, with the forced view first. The inputs
      * already read stay recorded.
+     *
+     * @param bool $remember whether to remember the view like a switch; the last call decides
      */
-    public function force(DeviceType $view): void
+    public function force(DeviceType $view, bool $remember = false): void
     {
         $this->forcedView = $view;
+        $this->rememberRequested = $remember;
         $this->resolved = null;
+    }
+
+    public function setRemember(bool $remember): void
+    {
+        $this->remember = $remember;
+    }
+
+    /**
+     * Records that the remember storage holds a forged value.
+     */
+    public function markForgedStoredValue(): void
+    {
+        $this->forgedStoredValue = true;
+    }
+
+    /**
+     * Records that the response listener ran.
+     */
+    public function markResponseBuilt(): void
+    {
+        $this->responseBuilt = true;
     }
 }

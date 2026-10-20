@@ -171,17 +171,17 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| VAL-01 | Switch token is trimmed and lower-cased | — | `GET /view?device_view=%20Mobile%20` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | planned |
+| VAL-01 | Switch token is trimmed and lower-cased | — | `GET /view?device_view=%20Mobile%20` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | active |
 | VAL-02 | Unknown switch word is ignored | — | `GET /view?device_view=phone` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie`; debug log `Ignored an invalid device view from the switch parameter.` | active |
 | VAL-03 | `not_mobile` is ignored | — | `GET /view?device_view=not_mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
 | VAL-04 | Array switch value is ignored | — | `GET /view?device_view[]=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie`, no error | active |
 | VAL-05 | Empty switch value is ignored | — | `GET /view?device_view=` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
 | VAL-06 | Switch token must be a configured name | `views: { names: { desktop: d } }` | `GET /view?device_view=desktop` | 200 `"d detector"`, no `Location`, no `Set-Cookie` | active |
-| VAL-07 | Stored token is trimmed and lower-cased | — | `GET /view`, `Cookie: device_view=MOBILE` | 200 `"mobile remembered"`, no `Set-Cookie` | planned |
+| VAL-07 | Stored token is trimmed and lower-cased | — | `GET /view`, `Cookie: device_view=MOBILE` | 200 `"mobile remembered"`, no `Set-Cookie` | active |
 | VAL-08 | Forged cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL`, `Vary: [Cookie, User-Agent]`; debug log `Ignored an invalid device view from the remember storage.` | planned |
-| VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error; debug log `Ignored an invalid device view from the remember storage.` | planned |
-| VAL-10 | Empty cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL` | planned |
-| VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | planned |
+| VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error; debug log `Ignored an invalid device view from the remember storage.` | active |
+| VAL-10 | Empty cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL` | active |
+| VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | active |
 | VAL-12 | Forged session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = phone` | 200 `"desktop detector"`; the session no longer has `_device_view` | planned |
 | VAL-13 | Invalid trusted header value is ignored | `TH` | `GET /view`, `X-Device-View: phone`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, X-Device-View, User-Agent]`; debug log `Ignored an invalid device view from the trusted header.` | planned |
 
@@ -193,7 +193,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | RES-02 | Detector decides | — | `GET /view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | planned |
 | RES-03 | `default_view` when the detector cannot tell | — | `GET /view`, `UA=empty` | 200 `"desktop default"`, `Vary: [Cookie, User-Agent]` | planned |
 | RES-04 | Forced view beats every source | `TH` | `GET /set-view/tablet`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=iphone` | 200 `"tablet forced"`, no `Set-Cookie`, no `Vary` (nothing was consulted) | planned |
-| RES-05 | Switch beats remembered | `switch: { target: none }` | `GET /view?device_view=tablet`, `Cookie: device_view=mobile`, `UA=iphone` | 200 `"tablet switch"`, `Set-Cookie: SC(tablet)`, no `Vary` | planned |
+| RES-05 | Switch beats remembered | `switch: { target: none }` | `GET /view?device_view=tablet`, `Cookie: device_view=mobile`, `UA=iphone` | 200 `"tablet switch"`, `Set-Cookie: SC(tablet)`, no `Vary` | active |
 | RES-06 | Remembered beats trusted header and detector | `TH` | `GET /view`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=desktop_chrome` | 200 `"mobile remembered"`, `Vary: [Cookie]` | planned |
 | RES-07 | Trusted header beats detector | `TH` | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"tablet trusted_header"`, `Vary: [Cookie, X-Device-View]` | planned |
 | RES-08 | The view is resolved once per request | — (TwigBundle registered) | `GET /twig`, `UA=iphone`, the template and a `ViewResolvedEvent` listener read the view several times | the detector is called once; `ViewResolvedEvent` is dispatched once | planned |
@@ -209,17 +209,17 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VW-01 | `default_view: mobile` | `default_view: mobile` | `GET /view`, `UA=empty` | 200 `"mobile default"` | active |
 | VW-02 | `default_view: tablet` without user agent | `default_view: tablet` | `GET /view`, `UA=missing` | 200 `"tablet default"` | active |
 | VW-03 | `tablet_as_mobile` maps a detected tablet | `tablet_as_mobile: true` | `GET /view`, `UA=ipad_legacy` | 200 `"mobile detector"` | active |
-| VW-04 | `tablet_as_mobile` maps a remembered tablet | `tablet_as_mobile: true` | `GET /view`, `Cookie: device_view=tablet` | 200 `"mobile remembered"`, no `Set-Cookie` | planned |
-| VW-05 | `tablet_as_mobile` maps a switch to tablet, and the cookie stores the mapped view | `tablet_as_mobile: true`, `switch: { target: none }` | `GET /view?device_view=tablet` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)` | planned |
+| VW-04 | `tablet_as_mobile` maps a remembered tablet | `tablet_as_mobile: true` | `GET /view`, `Cookie: device_view=tablet` | 200 `"mobile remembered"`, no `Set-Cookie` | active |
+| VW-05 | `tablet_as_mobile` maps a switch to tablet, and the cookie stores the mapped view | `tablet_as_mobile: true`, `switch: { target: none }` | `GET /view?device_view=tablet` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)` | active |
 | VW-06 | `tablet_as_mobile` maps `default_view: tablet` | `tablet_as_mobile: true`, `default_view: tablet` | `GET /view`, `UA=empty` | 200 `"mobile default"` | active |
 | VW-07 | `tablet_as_mobile` leaves other views alone | `tablet_as_mobile: true` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"` | active |
-| VW-08 | Renamed views: switch | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=m` | 302, `Location: /view`, `Set-Cookie: device_view=m; path=/; httponly; samesite=lax` | planned |
+| VW-08 | Renamed views: switch | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=m` | 302, `Location: /view`, `Set-Cookie: device_view=m; path=/; httponly; samesite=lax` | active |
 | VW-09 | Renamed views: the canonical name is no longer a token | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=mobile` | 200 `"d detector"`, no `Set-Cookie` | active |
-| VW-10 | Renamed views: remembered | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=t` | 200 `"t remembered"` | planned |
-| VW-11 | Renamed views: a stored canonical name is forged | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"d detector"`, `Set-Cookie: SC-DEL` | planned |
+| VW-10 | Renamed views: remembered | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=t` | 200 `"t remembered"` | active |
+| VW-11 | Renamed views: a stored canonical name is forged | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"d detector"`, `Set-Cookie: SC-DEL` | active |
 | VW-12 | Renamed views: cross-host redirect | `views: { names: { mobile: m } }`, `M` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=m` | planned |
 | VW-13 | Renamed views: trusted header | `views: { names: { tablet: t } }`, `TH` | `GET /view`, `X-Device-View: t` | 200 `"t trusted_header"` | planned |
-| VW-14 | Renaming one view keeps the others | `views: { names: { mobile: phone } }` | `GET /view?device_view=tablet` | 302, `Location: /view`, `Set-Cookie: SC(tablet)` | planned |
+| VW-14 | Renaming one view keeps the others | `views: { names: { mobile: phone } }` | `GET /view?device_view=tablet` | 302, `Location: /view`, `Set-Cookie: SC(tablet)` | active |
 
 ## 4. Detectors (DET), design.md section 9
 
@@ -295,27 +295,27 @@ process with the package's autoloading removed.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| SW-01 | Switch to the current page | — | `GET /view?device_view=mobile` | 302, `Location: /view`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)`, no `Vary` | planned |
+| SW-01 | Switch to the current page | — | `GET /view?device_view=mobile` | 302, `Location: /view`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)`, no `Vary` | active |
 | SW-02 | Other query parameters are kept in order | — | `GET /view?b=2&device_view=mobile&a=1` | 302, `Location: /view?b=2&a=1` (not sorted) | active |
 | SW-03 | The query is rebuilt with RFC 3986 encoding | — | `GET /view?q=a+b&tags[]=x&device_view=mobile` | 302, `Location: /view?q=a%20b&tags%5B0%5D=x` | active |
 | SW-04 | The base URL is kept | — | front controller `/app`: `GET http://localhost/app/view?device_view=mobile` | 302, `Location: /app/view` | active |
-| SW-05 | `target: home` | `switch: { target: home }` | `GET /view?a=1&device_view=mobile` | 302, `Location: /`, `Set-Cookie: SC(mobile)` | planned |
+| SW-05 | `target: home` | `switch: { target: home }` | `GET /view?a=1&device_view=mobile` | 302, `Location: /`, `Set-Cookie: SC(mobile)` | active |
 | SW-06 | `target: home` keeps the base URL | `switch: { target: home }` | front controller `/app`: `GET http://localhost/app/view?device_view=mobile` | 302, `Location: /app/` | active |
-| SW-07 | `target: none` applies to this request only | `switch: { target: none }` | `GET /view?device_view=mobile` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)`, no `Location`, no `Vary` | planned |
+| SW-07 | `target: none` applies to this request only | `switch: { target: none }` | `GET /view?device_view=mobile` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)`, no `Location`, no `Vary` | active |
 | SW-08 | Status 303 | `switch: { status: 303 }` | `GET /view?device_view=mobile` | 303, `Location: /view` | active |
 | SW-09 | Status 307 | `switch: { status: 307 }` | `GET /view?device_view=mobile` | 307, `Location: /view` | active |
-| SW-10 | Custom parameter | `switch: { parameter: view }` | `GET /view?view=tablet` | 302, `Location: /view`, `Set-Cookie: SC(tablet)` | planned |
+| SW-10 | Custom parameter | `switch: { parameter: view }` | `GET /view?view=tablet` | 302, `Location: /view`, `Set-Cookie: SC(tablet)` | active |
 | SW-11 | Custom parameter: the default name is ignored | `switch: { parameter: view }` | `GET /view?device_view=tablet` | 200 `"desktop detector"`, no `Set-Cookie` | active |
 | SW-12 | POST is not switched | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
-| SW-13 | HEAD is switched | — | `HEAD /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | planned |
-| SW-14 | `redirect.methods` also governs the switch | `redirect: { methods: [GET, POST] }` | `POST /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | planned |
-| SW-15 | `cache_control: null` sets nothing; the cookie makes the redirect private | `redirect: { cache_control: null }` | `GET /view?device_view=mobile` | 302, `Set-Cookie: SC(mobile)`, `Cache-Control: private` (Symfony's computed `no-cache, private` is not a stored directive, so the `private_when_remembering` step leaves `private` only) | planned |
+| SW-13 | HEAD is switched | — | `HEAD /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | active |
+| SW-14 | `redirect.methods` also governs the switch | `redirect: { methods: [GET, POST] }` | `POST /form?device_view=mobile` | 302, `Location: /form`, `Set-Cookie: SC(mobile)` | active |
+| SW-15 | `cache_control: null` sets nothing; the cookie makes the redirect private | `redirect: { cache_control: null }` | `GET /view?device_view=mobile` | 302, `Set-Cookie: SC(mobile)`, `Cache-Control: private` (Symfony's computed `no-cache, private` is not a stored directive, so the `private_when_remembering` step leaves `private` only) | active |
 | SW-16 | Custom `cache_control` | `redirect: { cache_control: 'no-cache, no-store, must-revalidate' }` | `GET /view?device_view=mobile` | 302, `Cache-Control: must-revalidate, no-cache, no-store, private` (Symfony sorts the directives and adds `private`) | active |
 | SW-17 | Switch to a view served by another host | `M` | `GET http://www.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: https://m.example.com/blog/post?a=1&device_view=mobile`, `Cache-Control: NS`, `Set-Cookie: SC(mobile)` | planned |
 | SW-18 | Switch arriving on the target host | `M` | `GET https://m.example.com/blog/post?a=1&device_view=mobile` | 302, `Location: /blog/post?a=1`, `Set-Cookie: SCS(mobile)` | planned |
 | SW-19 | Switch back to desktop from the mobile host | `M`, `D` | `GET https://m.example.com/blog/post?device_view=desktop`, `UA=iphone` | 302, `Location: https://www.example.com/blog/post?device_view=desktop`, `Set-Cookie: SCS(desktop)` | planned |
 | SW-20 | The redirected view's host equals the current host | `M` | `GET https://m.example.com/view?device_view=mobile` | 302, relative `Location: /view` | planned |
-| SW-21 | A switch to the stored view is written again | — | `GET /view?device_view=mobile`, `Cookie: device_view=mobile` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | planned |
+| SW-21 | A switch to the stored view is written again | — | `GET /view?device_view=mobile`, `Cookie: device_view=mobile` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | active |
 | SW-22 | Sub-requests never switch | — | `GET /with-sub-request?sub=%2Fview%3Fdevice_view%3Dtablet`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Set-Cookie`, no `Location` | active |
 
 ## 6. Remember decision table (REM), design.md section 7
@@ -330,23 +330,23 @@ denied is `Cookie: tarteaucitron=!device_view=false`, unknown is no consent cook
 | REM-01 | Switch, `on_switch: true`, consent granted | `TAC` | switch, granted | `Set-Cookie: SC(mobile, 31536000)` | planned |
 | REM-02 | Switch, `on_switch: true`, consent denied | `TAC` | switch, denied | `Set-Cookie: SC(mobile)` | planned |
 | REM-03 | Switch, `on_switch: true`, consent unknown | `TAC` | switch, unknown | `Set-Cookie: SC(mobile)` | planned |
-| REM-04 | Switch, `on_switch: true`, no provider | — | switch | `Set-Cookie: SC(mobile)` | planned |
-| REM-05 | Switch, no provider, `lifetime` set | `remember: { lifetime: 3600 }` | switch | `Set-Cookie: SC(mobile, 3600)` | planned |
+| REM-04 | Switch, `on_switch: true`, no provider | — | switch | `Set-Cookie: SC(mobile)` | active |
+| REM-05 | Switch, no provider, `lifetime` set | `remember: { lifetime: 3600 }` | switch | `Set-Cookie: SC(mobile, 3600)` | active |
 | REM-06 | Switch, `on_switch: false` | `TAC`, `remember: { on_switch: false }` | switch, granted | no `Set-Cookie` | planned |
 | REM-07 | Detected, `detected_view: false` | `TAC` | detected, granted | no `Set-Cookie` | planned |
-| REM-08 | Detected, `detected_view: true`, no provider | `remember: { detected_view: true }` | detected | `Set-Cookie: SC(mobile)` | planned |
-| REM-09 | Detected, `detected_view: true`, no provider, persistent lifetime | `remember: { detected_view: true, lifetime: 31536000 }` | detected | `Set-Cookie: SC(mobile, 31536000)` | planned |
+| REM-08 | Detected, `detected_view: true`, no provider | `remember: { detected_view: true }` | detected | `Set-Cookie: SC(mobile)` | active |
+| REM-09 | Detected, `detected_view: true`, no provider, persistent lifetime | `remember: { detected_view: true, lifetime: 31536000 }` | detected | `Set-Cookie: SC(mobile, 31536000)` | active |
 | REM-10 | Detected, `detected_view: true`, provider, granted | `TAC`, `remember: { detected_view: true }` | detected, granted | `Set-Cookie: SC(mobile, 31536000)` | planned |
 | REM-11 | Detected, `detected_view: true`, provider, denied | `TAC`, `remember: { detected_view: true }` | detected, denied | no `Set-Cookie` | planned |
 | REM-12 | Detected, `detected_view: true`, provider, unknown | `TAC`, `remember: { detected_view: true }` | detected, unknown | no `Set-Cookie` | planned |
-| REM-13 | A remembered view is not written again | `remember: { detected_view: true }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"mobile remembered"`, no `Set-Cookie` | planned |
-| REM-14 | Nothing is written when the view is not used | `remember: { detected_view: true }` | `GET /`, `UA=iphone` | 200 `"home page"`, no `Set-Cookie` | planned |
-| REM-15 | `default_view` is not a detected view | `remember: { detected_view: true }` | `GET /view`, `UA=empty` | 200 `"desktop default"`, no `Set-Cookie` | planned |
+| REM-13 | A remembered view is not written again | `remember: { detected_view: true }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"mobile remembered"`, no `Set-Cookie` | active |
+| REM-14 | Nothing is written when the view is not used | `remember: { detected_view: true }` | `GET /`, `UA=iphone` | 200 `"home page"`, no `Set-Cookie` | active |
+| REM-15 | `default_view` is not a detected view | `remember: { detected_view: true }` | `GET /view`, `UA=empty` | 200 `"desktop default"`, no `Set-Cookie` | active |
 | REM-16 | A trusted header view counts as detected | `TH`, `remember: { detected_view: true }` | `GET /view`, `X-Device-View: tablet` | 200 `"tablet trusted_header"`, `Set-Cookie: SC(tablet)` | planned |
-| REM-17 | `setRemember(false)` stops a write | `switch: { target: none }` | `GET /set-remember-off?device_view=mobile` | 200 `"mobile switch"`, no `Set-Cookie` | planned |
-| REM-18 | `setView($view, true)` writes like a switch | — | `GET /set-view/tablet?remember=1` | 200 `"tablet forced"`, `Set-Cookie: SC(tablet)` | planned |
+| REM-17 | `setRemember(false)` stops a write | `switch: { target: none }` | `GET /set-remember-off?device_view=mobile` | 200 `"mobile switch"`, no `Set-Cookie` | active |
+| REM-18 | `setView($view, true)` writes like a switch | — | `GET /set-view/tablet?remember=1` | 200 `"tablet forced"`, `Set-Cookie: SC(tablet)` | active |
 | REM-19 | `setView($view, true)` with consent granted | `TAC` | `GET /set-view/tablet?remember=1`, granted | `Set-Cookie: SC(tablet, 31536000)` | planned |
-| REM-20 | `setView($view)` does not write | — | `GET /set-view/tablet` | 200 `"tablet forced"`, no `Set-Cookie` | planned |
+| REM-20 | `setView($view)` does not write | — | `GET /set-view/tablet` | 200 `"tablet forced"`, no `Set-Cookie` | active |
 | REM-21 | `setConsent(true)` overrides a denied checker | `TAC`, `switch: { target: none }` | `GET /set-consent/1?device_view=mobile`, denied | 200 `"mobile switch"`, `Set-Cookie: SC(mobile, 31536000)` | planned |
 | REM-22 | `setConsent(false)` overrides a granted checker | `TAC`, `switch: { target: none }` | `GET /set-consent/0?device_view=mobile`, granted | `Set-Cookie: SC(mobile)` | planned |
 | REM-23 | `setConsent(true)` without a provider | `switch: { target: none }` | `GET /set-consent/1?device_view=mobile` | `Set-Cookie: SC(mobile, 31536000)` | planned |
@@ -360,22 +360,22 @@ All rows switch with `GET /view?device_view=mobile` (302, `Location: /view`) unl
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CK-01 | Defaults over HTTP | — | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=lax` | planned |
-| CK-02 | `secure: auto` over HTTPS | — | `GET https://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=lax` | planned |
-| CK-03 | `secure: true` over HTTP | `remember: { cookie: { secure: true } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=lax` | planned |
-| CK-04 | `secure: false` over HTTPS | `remember: { cookie: { secure: false } }` | `GET https://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=lax` | planned |
-| CK-05 | Custom name is written | `remember: { cookie: { name: dv } }` | switch | `Set-Cookie: dv=mobile; path=/; httponly; samesite=lax` | planned |
-| CK-06 | Custom name is read, the default name is not | `remember: { cookie: { name: dv } }` | `GET /view`, `Cookie: dv=tablet; device_view=mobile` | 200 `"tablet remembered"`, no `Set-Cookie` | planned |
-| CK-07 | Custom path | `remember: { cookie: { path: /shop } }` | switch | `Set-Cookie: device_view=mobile; path=/shop; httponly; samesite=lax` | planned |
-| CK-08 | Custom domain | `remember: { cookie: { domain: .example.com } }` | switch | `Set-Cookie: device_view=mobile; path=/; domain=.example.com; httponly; samesite=lax` | planned |
-| CK-09 | `http_only: false` | `remember: { cookie: { http_only: false } }` | switch | `Set-Cookie: device_view=mobile; path=/; samesite=lax` | planned |
-| CK-10 | `same_site: strict` | `remember: { cookie: { same_site: strict } }` | switch | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=strict` | planned |
-| CK-11 | `same_site: none` over HTTPS | `remember: { cookie: { same_site: none } }` | `GET https://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=none` | planned |
-| CK-12 | `same_site: null` | `remember: { cookie: { same_site: null } }` | switch | `Set-Cookie: device_view=mobile; path=/; httponly` | planned |
-| CK-13 | `raw: true` | `remember: { cookie: { raw: true } }` | switch | `Set-Cookie: SC(mobile)`; the `Cookie` object is raw | planned |
+| CK-01 | Defaults over HTTP | — | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=lax` | active |
+| CK-02 | `secure: auto` over HTTPS | — | `GET https://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=lax` | active |
+| CK-03 | `secure: true` over HTTP | `remember: { cookie: { secure: true } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=lax` | active |
+| CK-04 | `secure: false` over HTTPS | `remember: { cookie: { secure: false } }` | `GET https://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=lax` | active |
+| CK-05 | Custom name is written | `remember: { cookie: { name: dv } }` | switch | `Set-Cookie: dv=mobile; path=/; httponly; samesite=lax` | active |
+| CK-06 | Custom name is read, the default name is not | `remember: { cookie: { name: dv } }` | `GET /view`, `Cookie: dv=tablet; device_view=mobile` | 200 `"tablet remembered"`, no `Set-Cookie` | active |
+| CK-07 | Custom path | `remember: { cookie: { path: /shop } }` | switch | `Set-Cookie: device_view=mobile; path=/shop; httponly; samesite=lax` | active |
+| CK-08 | Custom domain | `remember: { cookie: { domain: .example.com } }` | switch | `Set-Cookie: device_view=mobile; path=/; domain=.example.com; httponly; samesite=lax` | active |
+| CK-09 | `http_only: false` | `remember: { cookie: { http_only: false } }` | switch | `Set-Cookie: device_view=mobile; path=/; samesite=lax` | active |
+| CK-10 | `same_site: strict` | `remember: { cookie: { same_site: strict } }` | switch | `Set-Cookie: device_view=mobile; path=/; httponly; samesite=strict` | active |
+| CK-11 | `same_site: none` over HTTPS | `remember: { cookie: { same_site: none } }` | `GET https://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=none` | active |
+| CK-12 | `same_site: null` | `remember: { cookie: { same_site: null } }` | switch | `Set-Cookie: device_view=mobile; path=/; httponly` | active |
+| CK-13 | `raw: true` | `remember: { cookie: { raw: true } }` | switch | `Set-Cookie: SC(mobile)`; the `Cookie` object is raw | active |
 | CK-14 | Persistent cookie over HTTPS | `TAC` | `GET https://localhost/view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `Set-Cookie: SCS(mobile, 31536000)` | planned |
-| CK-15 | The expired cookie carries the configured attributes | `remember: { cookie: { name: dv, path: /shop, domain: .example.com } }` | `GET /view`, `Cookie: dv=phone` | `Set-Cookie: dv=deleted; expires=E(-31536001); Max-Age=0; path=/shop; domain=.example.com; httponly; samesite=lax` | planned |
-| CK-16 | `same_site: none` forces `secure`, even over HTTP | `remember: { cookie: { same_site: none } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=none` (`secure: auto` would leave it out over HTTP; `same_site: none` adds it whatever `secure` says, and `secure: false` is refused by CFG-26) | planned |
+| CK-15 | The expired cookie carries the configured attributes | `remember: { cookie: { name: dv, path: /shop, domain: .example.com } }` | `GET /view`, `Cookie: dv=phone` | `Set-Cookie: dv=deleted; expires=E(-31536001); Max-Age=0; path=/shop; domain=.example.com; httponly; samesite=lax` | active |
+| CK-16 | `same_site: none` forces `secure`, even over HTTP | `remember: { cookie: { same_site: none } }` | `GET http://localhost/view?device_view=mobile` | `Set-Cookie: device_view=mobile; path=/; secure; httponly; samesite=none` (`secure: auto` would leave it out over HTTP; `same_site: none` adds it whatever `secure` says, and `secure: false` is refused by CFG-26) | active |
 
 ## 8. Session storage (SES), design.md sections 4 and 7
 
@@ -633,10 +633,10 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| HC-01 | A response writing the cookie becomes private | `remember: { detected_view: true }` | `GET /cacheable`, `UA=iphone` | `Set-Cookie: SC(mobile)`, `Cache-Control: max-age=3600, private` | planned |
-| HC-02 | `private_when_remembering: false` | `remember: { detected_view: true }`, `http_cache: { private_when_remembering: false }` | `GET /cacheable`, `UA=iphone` | `Set-Cookie: SC(mobile)`, `Cache-Control: max-age=3600, public` | planned |
+| HC-01 | A response writing the cookie becomes private | `remember: { detected_view: true }` | `GET /cacheable`, `UA=iphone` | `Set-Cookie: SC(mobile)`, `Cache-Control: max-age=3600, private` | active |
+| HC-02 | `private_when_remembering: false` | `remember: { detected_view: true }`, `http_cache: { private_when_remembering: false }` | `GET /cacheable`, `UA=iphone` | `Set-Cookie: SC(mobile)`, `Cache-Control: max-age=3600, public` | active |
 | HC-03 | A response without the cookie stays public | — | `GET /cacheable`, `Cookie: device_view=mobile` | no `Set-Cookie`, `Cache-Control: max-age=3600, public`, `Vary: [Cookie]` | planned |
-| HC-04 | Expiring a forged cookie also makes it private | — | `GET /cacheable`, `Cookie: device_view=phone` | `Set-Cookie: SC-DEL`, `Cache-Control: max-age=3600, private` | planned |
+| HC-04 | Expiring a forged cookie also makes it private | — | `GET /cacheable`, `Cookie: device_view=phone` | `Set-Cookie: SC-DEL`, `Cache-Control: max-age=3600, private` | active |
 
 ## 15. Trusted header (TH), design.md sections 4 and 5
 
@@ -817,13 +817,13 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-18 | `switch.status` set | `switch: { status: 301 }` | container build | message contains `The value 301 is not allowed for path "device_view.switch.status"` | active |
 | CFG-19 | `switch.parameter` not empty | `switch: { parameter: '' }` | container build | message contains `The path "device_view.switch.parameter" cannot contain an empty value` | active |
 | CFG-20 | `remember.storage` service | `remember: { storage: app.not_a_storage }` | container build | message contains `The service "app.not_a_storage" set in device_view.remember.storage must implement DeviceViewBundle\Remember\ViewStorageInterface.` | planned |
-| CFG-21 | Negative lifetime | `remember: { lifetime: -1 }` | container build | message contains `The value -1 is too small for path "device_view.remember.lifetime"` | planned |
-| CFG-22 | `consented_lifetime` below `lifetime` | `remember: { lifetime: 3600, consented_lifetime: 60 }` | container build | message contains `device_view.remember.consented_lifetime (60) must be greater than or equal to device_view.remember.lifetime (3600).` | planned |
-| CFG-23 | `consented_lifetime` is free when `lifetime` is 0 | `remember: { lifetime: 0, consented_lifetime: 60 }` | container build | builds | planned |
-| CFG-24 | `cookie.secure` enum | `remember: { cookie: { secure: maybe } }` | container build | message contains `device_view.remember.cookie.secure` and `auto` | planned |
-| CFG-25 | `cookie.same_site` enum | `remember: { cookie: { same_site: relaxed } }` | container build | message contains `The value "relaxed" is not allowed for path "device_view.remember.cookie.same_site"` | planned |
-| CFG-26 | `same_site: none` needs secure | `remember: { cookie: { same_site: none, secure: false } }` | container build | message contains `device_view.remember.cookie.same_site "none" needs device_view.remember.cookie.secure set to true or auto.` | planned |
-| CFG-27 | Cookie name | `remember: { cookie: { name: 'dv;x' } }` | container build | message contains `The cookie name "dv;x" is invalid.` | planned |
+| CFG-21 | Negative lifetime | `remember: { lifetime: -1 }` | container build | message contains `The value -1 is too small for path "device_view.remember.lifetime"` | active |
+| CFG-22 | `consented_lifetime` below `lifetime` | `remember: { lifetime: 3600, consented_lifetime: 60 }` | container build | message contains `device_view.remember.consented_lifetime (60) must be greater than or equal to device_view.remember.lifetime (3600).` | active |
+| CFG-23 | `consented_lifetime` is free when `lifetime` is 0 | `remember: { lifetime: 0, consented_lifetime: 60 }` | container build | builds | active |
+| CFG-24 | `cookie.secure` enum | `remember: { cookie: { secure: maybe } }` | container build | message contains `device_view.remember.cookie.secure` and `auto` | active |
+| CFG-25 | `cookie.same_site` enum | `remember: { cookie: { same_site: relaxed } }` | container build | message contains `The value "relaxed" is not allowed for path "device_view.remember.cookie.same_site"` | active |
+| CFG-26 | `same_site: none` needs secure | `remember: { cookie: { same_site: none, secure: false } }` | container build | message contains `device_view.remember.cookie.same_site "none" needs device_view.remember.cookie.secure set to true or auto.` | active |
+| CFG-27 | Cookie name | `remember: { cookie: { name: 'dv;x' } }` | container build | message contains `The cookie name "dv;x" is invalid.` | active |
 | CFG-28 | Session key not empty | `remember: { session: { key: '' } }` | container build | message contains `The path "device_view.remember.session.key" cannot contain an empty value` | planned |
 | CFG-29 | `storage: none` with `detected_view` | `remember: { storage: none, detected_view: true }` | container build | message contains `device_view.remember.detected_view cannot be true when device_view.remember.storage is "none".` | planned |
 | CFG-30 | `storage: none` with a consent provider | `remember: { storage: none }`, `TAC` | container build | message contains `device_view.consent.provider cannot be set when device_view.remember.storage is "none".` | planned |
@@ -893,8 +893,8 @@ One named test per bug of the old bundle. Each also passes on every line.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| REG-01 | Custom cookie name honoured on read | `remember: { cookie: { name: dv } }` | `GET /view`, `Cookie: dv=mobile`, `UA=desktop_chrome` | 200 `"mobile remembered"` | planned |
-| REG-02 | Custom switch parameter honoured | `switch: { parameter: view }` | `GET /view?view=mobile` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | planned |
+| REG-01 | Custom cookie name honoured on read | `remember: { cookie: { name: dv } }` | `GET /view`, `Cookie: dv=mobile`, `UA=desktop_chrome` | 200 `"mobile remembered"` | active |
+| REG-02 | Custom switch parameter honoured | `switch: { parameter: view }` | `GET /view?view=mobile` | 302, `Location: /view`, `Set-Cookie: SC(mobile)` | active |
 | REG-03 | `not_mobile` cannot bypass a redirect | `M` | `GET http://www.example.com/?device_view=not_mobile`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile` | planned |
 | REG-04 | Array parameter is harmless | `M` | `GET http://www.example.com/?device_view[]=x`, `UA=iphone` | 302, `Location: https://m.example.com/?device_view=mobile`, no error | planned |
 | REG-05 | Garbage parameter is harmless | — | `GET /view?device_view=%00%FF` | 200 `"desktop detector"`, no `Set-Cookie` | planned |

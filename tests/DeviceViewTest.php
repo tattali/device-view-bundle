@@ -115,6 +115,94 @@ final class DeviceViewTest extends TestCase
         self::assertSame(DeviceType::Desktop, $deviceView->getView());
     }
 
+    public function testSetViewWithRememberRequestsAWrite(): void
+    {
+        $stack = new RequestStack();
+        $context = new DeviceViewContext();
+        $stack->push(self::mainRequest($context, null));
+        $deviceView = self::deviceView($stack);
+
+        $deviceView->setView('tablet', true);
+
+        self::assertSame(DeviceType::Tablet, $context->forcedView);
+        self::assertTrue($context->rememberRequested);
+
+        $deviceView->setView('mobile');
+
+        self::assertFalse($context->rememberRequested);
+    }
+
+    public function testSetRememberSetsTheOverrideOfTheMainRequest(): void
+    {
+        $stack = new RequestStack();
+        $context = new DeviceViewContext();
+        $stack->push(self::mainRequest($context, null));
+        $stack->push(Request::create('/sub'));
+        $deviceView = self::deviceView($stack);
+
+        $deviceView->setRemember(false);
+        self::assertFalse($context->remember);
+
+        $deviceView->setRemember(true);
+        self::assertTrue($context->remember);
+    }
+
+    public function testSetRememberOutsideARequest(): void
+    {
+        $logger = new TestLogger();
+
+        self::deviceView(new RequestStack(), logger: $logger)->setRemember(false);
+        self::deviceView(new RequestStack())->setRemember(false);
+
+        self::assertSame(['Ignored DeviceView::setRemember(): there is no request.'], $logger->messages(LogLevel::DEBUG));
+    }
+
+    public function testChangesAfterTheResponseIsBuiltAreIgnored(): void
+    {
+        $stack = new RequestStack();
+        $context = new DeviceViewContext();
+        $stack->push(self::mainRequest($context, 'tablet'));
+        $logger = new TestLogger();
+        $deviceView = self::deviceView($stack, logger: $logger);
+        $context->markResponseBuilt();
+
+        $deviceView->setView('mobile', true);
+        $deviceView->setRemember(false);
+
+        self::assertNull($context->forcedView);
+        self::assertFalse($context->rememberRequested);
+        self::assertNull($context->remember);
+        self::assertSame(DeviceType::Tablet, $deviceView->getView(), 'reading still works');
+        self::assertSame([
+            'Ignored a device view change made after the response was built.',
+            'Ignored a device view change made after the response was built.',
+        ], $logger->messages(LogLevel::DEBUG));
+    }
+
+    public function testAnUnknownNameThrowsEvenAfterTheResponseIsBuilt(): void
+    {
+        $stack = new RequestStack();
+        $context = new DeviceViewContext();
+        $stack->push(self::mainRequest($context, null));
+        $context->markResponseBuilt();
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        self::deviceView($stack)->setView('phone');
+    }
+
+    public function testChangesAfterTheResponseIsBuiltWithoutALogger(): void
+    {
+        $stack = new RequestStack();
+        $context = new DeviceViewContext();
+        $stack->push(self::mainRequest($context, null));
+        $context->markResponseBuilt();
+
+        self::deviceView($stack)->setRemember(false);
+
+        self::assertNull($context->remember);
+    }
+
     public function testGetSwitchUrlGivesTheConfiguredNameOfTheView(): void
     {
         $stack = new RequestStack();

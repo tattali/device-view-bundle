@@ -46,6 +46,7 @@ final class DeviceViewBundle extends AbstractBundle
         $container->import('../config/services.php');
         $container->import('../config/resolver.php');
         $container->import('../config/switch.php');
+        $container->import('../config/remember.php');
 
         /** @var array{id: non-empty-string, mobile_detect: array{headers: non-empty-list<string>, cache: string|null}} $detector */
         $detector = $config['detector'];
@@ -72,7 +73,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, remember: array{on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -96,6 +97,25 @@ final class DeviceViewBundle extends AbstractBundle
             ->replaceArgument(3, $switch['status'])
             ->replaceArgument(4, $config['redirect']['cache_control'])
         ;
+
+        $remember = $config['remember'];
+        $cookie = $remember['cookie'];
+        $builder->getDefinition('device_view.storage.cookie')->setArguments([
+            $cookie['name'],
+            $cookie['path'],
+            $cookie['domain'],
+            'auto' === $cookie['secure'] ? null : $cookie['secure'],
+            $cookie['http_only'],
+            $cookie['same_site'],
+            $cookie['raw'],
+        ]);
+        $builder->getDefinition('device_view.remember.policy')->setArguments([
+            $remember['on_switch'],
+            $remember['detected_view'],
+            $remember['lifetime'],
+            $remember['consented_lifetime'],
+        ]);
+        $builder->getDefinition('device_view.remember_listener')->replaceArgument(4, $config['http_cache']['private_when_remembering']);
 
         $resolver = $config['services']['resolver'];
         if (null !== $resolver) {

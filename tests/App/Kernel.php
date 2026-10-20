@@ -7,6 +7,7 @@ namespace DeviceViewBundle\Tests\App;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\DeviceView;
 use DeviceViewBundle\DeviceViewBundle;
+use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -42,6 +43,8 @@ final class Kernel extends BaseKernel
         'test.view_resolver_interface' => ViewResolverInterface::class,
         'test.device_view.device_view' => 'device_view.device_view',
         'test.device_view' => DeviceView::class,
+        'test.device_view.storage' => 'device_view.storage',
+        'test.view_storage_interface' => ViewStorageInterface::class,
     ];
 
     private static ?string $runDir = null;
@@ -174,6 +177,12 @@ final class Kernel extends BaseKernel
             ->public()
             ->args([new Reference(DeviceView::class)])
             ->tag('kernel.event_listener', ['event' => KernelEvents::CONTROLLER, 'method' => 'onKernelController'])
+        ;
+        $services
+            ->set(ResponseCall::class)
+            ->public()
+            ->args([new Reference(DeviceView::class)])
+            ->tag('kernel.event_listener', ['event' => KernelEvents::RESPONSE, 'method' => 'onKernelResponse', 'priority' => -10])
         ;
         $services
             ->set(RequestRecorder::class)

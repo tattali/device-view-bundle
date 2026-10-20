@@ -35,9 +35,27 @@ final readonly class TestController
         return new Response($this->deviceView->getViewName().' '.$this->deviceView->getSource()->value);
     }
 
-    public function setView(string $view): Response
+    /**
+     * Same as view(), with a public response cacheable for an hour.
+     */
+    public function cacheable(): Response
     {
-        $this->deviceView->setView($view);
+        return $this->view()->setPublic()->setMaxAge(3600);
+    }
+
+    /**
+     * Forces the view, and asks to remember it when the "remember" query parameter is true.
+     */
+    public function setView(Request $request, string $view): Response
+    {
+        $this->deviceView->setView($view, $request->query->getBoolean('remember'));
+
+        return $this->view();
+    }
+
+    public function setRememberOff(): Response
+    {
+        $this->deviceView->setRemember(false);
 
         return $this->view();
     }

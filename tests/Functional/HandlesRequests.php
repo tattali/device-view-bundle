@@ -56,11 +56,13 @@ trait HandlesRequests
 
     /**
      * GET http://localhost<path> with the user agent of a fixture of tests/Fixtures/user-agents.php
-     * (the header is removed for the "missing" fixture).
+     * (the header is removed for the "missing" fixture). A full URL is used as given.
+     *
+     * @param array<string, mixed> $cookies the request cookies, as PHP decodes them
      */
-    private static function request(string $path, string $userAgent = 'desktop_chrome', string $method = 'GET'): Request
+    private static function request(string $path, string $userAgent = 'desktop_chrome', string $method = 'GET', array $cookies = []): Request
     {
-        $request = Request::create('http://localhost'.$path, $method);
+        $request = Request::create(str_contains($path, '://') ? $path : 'http://localhost'.$path, $method, cookies: $cookies);
         $value = self::userAgent($userAgent);
         if (null === $value) {
             $request->headers->remove('User-Agent');
