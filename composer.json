@@ -43,6 +43,7 @@
         "phpunit/phpunit": "^12.5",
         "shipmonk/composer-dependency-analyser": "^1.8",
         "symfony/cache": "^8.0",
+        "symfony/event-dispatcher": "^8.0",
         "symfony/filesystem": "^8.0",
         "symfony/framework-bundle": "^8.0",
         "symfony/routing": "^8.0",

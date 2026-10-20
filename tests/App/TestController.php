@@ -16,6 +16,8 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
  */
 final readonly class TestController
 {
+    public const string VARY_ATTRIBUTE = '_test_vary';
+
     public function __construct(
         private DeviceView $deviceView,
         private HttpKernelInterface $httpKernel,
@@ -28,11 +30,18 @@ final readonly class TestController
     }
 
     /**
-     * Prints the view name and its source, e.g. "mobile detector".
+     * Prints the view name and its source, e.g. "mobile detector". When the test set the request
+     * attribute VARY_ATTRIBUTE, the response gets that Vary value, as a controller would set it.
      */
-    public function view(): Response
+    public function view(?Request $request = null): Response
     {
-        return new Response($this->deviceView->getViewName().' '.$this->deviceView->getSource()->value);
+        $response = new Response($this->deviceView->getViewName().' '.$this->deviceView->getSource()->value);
+        $vary = $request?->attributes->get(self::VARY_ATTRIBUTE);
+        if (\is_string($vary)) {
+            $response->setVary($vary);
+        }
+
+        return $response;
     }
 
     /**

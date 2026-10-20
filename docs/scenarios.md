@@ -135,7 +135,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | Route | Path | Behaviour |
 |---|---|---|
 | `home` | `/` | Body `home page`. Never reads the view. |
-| `view` | `/view` | Body `<view name> <source>`, from `DeviceView::getViewName()` and `DeviceView::getSource()`, e.g. `mobile detector`. |
+| `view` | `/view` | Body `<view name> <source>`, from `DeviceView::getViewName()` and `DeviceView::getSource()`, e.g. `mobile detector`. When the test sets the request attribute `_test_vary`, the controller sets that value as the response's `Vary` (VARY-06, VARY-07). |
 | `blog` | `/blog/{slug}` | Same as `view`. |
 | `form` | `/form` | Same as `view`; accepts GET, HEAD and POST. |
 | `cacheable` | `/cacheable` | Same as `view`, and the response is `setPublic()` then `setMaxAge(3600)`. |
@@ -617,18 +617,18 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| VARY-01 | View never used | — | `GET /`, `UA=iphone` | no `Vary` | planned |
-| VARY-02 | Detector decided | — | `GET /view`, `UA=iphone` | `Vary: [Cookie, User-Agent]` | planned |
-| VARY-03 | Remembered decided | — | `GET /view`, `Cookie: device_view=tablet` | `Vary: [Cookie]` | planned |
-| VARY-04 | Switch decided | `switch: { target: none }` | `GET /view?device_view=tablet` | no `Vary` | planned |
+| VARY-01 | View never used | — | `GET /`, `UA=iphone` | no `Vary` | active |
+| VARY-02 | Detector decided | — | `GET /view`, `UA=iphone` | `Vary: [Cookie, User-Agent]` | active |
+| VARY-03 | Remembered decided | — | `GET /view`, `Cookie: device_view=tablet` | `Vary: [Cookie]` | active |
+| VARY-04 | Switch decided | `switch: { target: none }` | `GET /view?device_view=tablet` | no `Vary` | active |
 | VARY-05 | Trusted header decided | `TH` | `GET /view`, `X-Device-View: tablet` | `Vary: [Cookie, X-Device-View]` | planned |
-| VARY-06 | Appended to the controller's values | — | `GET /view`, `UA=iphone`, the controller sets `Vary: Accept-Language` | `Vary: [Accept-Language, Cookie, User-Agent]` | planned |
-| VARY-07 | No duplicates | — | `GET /view`, `UA=iphone`, the controller sets `Vary: user-agent` | `Vary: [user-agent, Cookie]` | planned |
-| VARY-08 | `http_cache.vary: false` | `http_cache: { vary: false }` | `GET /view`, `UA=iphone` | no `Vary` | planned |
+| VARY-06 | Appended to the controller's values | — | `GET /view`, `UA=iphone`, the controller sets `Vary: Accept-Language` | `Vary: [Accept-Language, Cookie, User-Agent]` | active |
+| VARY-07 | No duplicates | — | `GET /view`, `UA=iphone`, the controller sets `Vary: user-agent` | `Vary: [user-agent, Cookie]` | active |
+| VARY-08 | `http_cache.vary: false` | `http_cache: { vary: false }` | `GET /view`, `UA=iphone` | no `Vary` | active |
 | VARY-09 | Static detector varies on nothing | `detector: { id: static }` | `GET /view` | `Vary: [Cookie]` | planned |
-| VARY-10 | `storage: none` does not vary on `Cookie` | `remember: { storage: none }` | `GET /view`, `UA=iphone` | `Vary: [User-Agent]` | planned |
-| VARY-11 | A forced view varies on nothing | — | `GET /set-view/mobile` | no `Vary` | planned |
-| VARY-12 | Sub-request responses get no `Vary` | — | `GET /with-sub-request`, `UA=iphone` | the sub-request response has no `Vary`; the main response has `Vary: [Cookie, User-Agent]` | planned |
+| VARY-10 | `storage: none` does not vary on `Cookie` | `remember: { storage: none }` | `GET /view`, `UA=iphone` | `Vary: [User-Agent]` | active |
+| VARY-11 | A forced view varies on nothing | — | `GET /set-view/mobile` | no `Vary` | active |
+| VARY-12 | Sub-request responses get no `Vary` | — | `GET /with-sub-request`, `UA=iphone` | the sub-request response has no `Vary`; the main response has `Vary: [Cookie, User-Agent]` | active |
 
 ## 14. Cache-Control (HC), design.md sections 4 and 6
 
@@ -859,6 +859,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-59 | Route default keys are non-empty strings | `route_defaults: { redirect: '' }`, then `route_defaults: { remember: '' }`, then `route_defaults: { redirect: false }` | container build | message contains `The path "device_view.route_defaults.redirect" cannot contain an empty value` (`remember` for the second), then `Invalid type for path "device_view.route_defaults.redirect"` | active |
 | CFG-60 | Route default keys differ | `route_defaults: { redirect: _dv, remember: _dv }` | container build | message contains `device_view.route_defaults.redirect and device_view.route_defaults.remember must be different route defaults, both are "_dv".` | active |
 | CFG-61 | A route default key cannot be the context attribute | `route_defaults: { redirect: _device_view }` | container build | message contains `device_view.route_defaults.redirect cannot be "_device_view", the request attribute that holds the device view context.` | active |
+| CFG-62 | `http_cache` keys are booleans | `http_cache: { vary: 'yes' }`, then `http_cache: { private_when_remembering: 'yes' }` | container build | message contains `Invalid type for path "device_view.http_cache.vary"` (`private_when_remembering` for the second) | active |
 
 ## 25. Configuration reference (REF), design.md section 12
 
@@ -998,7 +999,11 @@ the area; if the owner disagrees, the rows change before they become active.
 - `route_defaults.redirect` and `route_defaults.remember` must be two different keys, and neither
   can be `_device_view`, the request attribute of the context (CFG-60, CFG-61).
 - `Vary` keeps the response's values first, then adds the consulted inputs in the order they were
-  consulted, skipping names already present (compared without case) (VARY-06, VARY-07).
+  consulted, skipping names already present (compared without case) (VARY-06, VARY-07). The
+  response's own `Vary` lines stay as they are, and the added names follow as one more line,
+  e.g. `Vary: Accept-Language` then `Vary: Cookie, User-Agent`. The listener runs on
+  `kernel.response` at priority 0, before the remember listener (design.md section 5, step 5);
+  with `http_cache.vary: false` it is not registered (VARY-08).
 - Cancelling a switch redirect keeps the switched view and its remember (EVT-RED-05).
 - Matomo with `client_hints: true` passes and varies on `Sec-CH-UA`, `Sec-CH-UA-Arch`,
   `Sec-CH-UA-Bitness`, `Sec-CH-UA-Full-Version`, `Sec-CH-UA-Full-Version-List`,
