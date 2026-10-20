@@ -177,9 +177,12 @@ final class Kernel extends BaseKernel
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
+        // the secrets vault is not used: without it, each container is smaller, and a test run
+        // keeps one container per configuration in memory
         $container->extension('framework', [
             'secret' => 'device-view-bundle-tests',
             'test' => true,
+            'secrets' => false,
         ] + $this->framework);
         $container->extension('device_view', $this->deviceViewConfig);
 
