@@ -7,6 +7,8 @@ namespace DeviceViewBundle;
 use DeviceViewBundle\DependencyInjection\Compiler\CheckConfiguredServicesPass;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\Detector\MobileDetectDetector;
+use DeviceViewBundle\Resolver\ViewResolverInterface;
+use DeviceViewBundle\View\DeviceType;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -41,6 +43,7 @@ final class DeviceViewBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import('../config/services.php');
+        $container->import('../config/resolver.php');
 
         /** @var array{id: non-empty-string, mobile_detect: array{headers: non-empty-list<string>, cache: string|null}} $detector */
         $detector = $config['detector'];
@@ -66,6 +69,25 @@ final class DeviceViewBundle extends AbstractBundle
         }
 
         $container->services()->alias('device_view.detector', $id);
+
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, services: array{resolver: string|null}} $config */
+        $defaultView = DeviceType::from($config['default_view']);
+        $tabletAsMobile = $config['tablet_as_mobile'];
+        $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
+        $builder->getDefinition('device_view.resolver.default')
+            ->replaceArgument(1, $defaultView)
+            ->replaceArgument(2, $tabletAsMobile)
+        ;
+        $builder->getDefinition('device_view.device_view')
+            ->replaceArgument(3, $tabletAsMobile && DeviceType::Tablet === $defaultView ? DeviceType::Mobile : $defaultView)
+        ;
+
+        $resolver = $config['services']['resolver'];
+        if (null !== $resolver) {
+            $checks[] = [$resolver, 'device_view.services.resolver', ViewResolverInterface::class];
+        }
+        $container->services()->alias('device_view.resolver', $resolver ?? 'device_view.resolver.default');
+
         $builder->setParameter(CheckConfiguredServicesPass::PARAMETER, $checks);
     }
 

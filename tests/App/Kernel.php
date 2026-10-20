@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\App;
 
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
+use DeviceViewBundle\DeviceView;
 use DeviceViewBundle\DeviceViewBundle;
+use DeviceViewBundle\Resolver\ViewResolverInterface;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /**
@@ -34,6 +38,10 @@ final class Kernel extends BaseKernel
     public const array TEST_ALIASES = [
         'test.device_view.detector' => 'device_view.detector',
         'test.device_detector_interface' => DeviceDetectorInterface::class,
+        'test.device_view.resolver' => 'device_view.resolver',
+        'test.view_resolver_interface' => ViewResolverInterface::class,
+        'test.device_view.device_view' => 'device_view.device_view',
+        'test.device_view' => DeviceView::class,
     ];
 
     private static ?string $runDir = null;
@@ -158,7 +166,13 @@ final class Kernel extends BaseKernel
         $services = $container->services();
         $services
             ->set(TestController::class)
+            ->args([new Reference(DeviceView::class), new Reference('http_kernel')])
             ->tag('controller.service_arguments')
+        ;
+        $services
+            ->set(RequestRecorder::class)
+            ->public()
+            ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => -1000])
         ;
         foreach ($this->services as $id => $class) {
             $services->set($id, $class)->public();

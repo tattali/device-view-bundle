@@ -151,6 +151,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | `set_view` | `/set-view/{view}` | Calls `DeviceView::setView($view, $request->query->getBoolean('remember'))`, then prints like `view`. |
 | `set_remember_off` | `/set-remember-off` | Calls `DeviceView::setRemember(false)`, then prints like `view`. |
 | `set_consent` | `/set-consent/{value}` | Calls `DeviceView::setConsent()` with `true` for `1`, `false` for `0`, `null` for `null`, then prints like `view`. |
+| `readers` | `/readers/{name}` | JSON object of every `DeviceView` reader: `view` (`getView()` value), `name` (`getViewName()`), `mobile`, `tablet`, `desktop` (`isMobile()`, `isTablet()`, `isDesktop()`), `is` (`is($name)`), `is_mobile_type` (`is(DeviceType::Mobile)`), `source` (`getSource()` value). |
 | `sub_request` | `/with-sub-request` | Renders an inline sub-request to the URI in the `sub` query parameter (default `/view`); body `main=<main view name> sub=<sub-request body>`. |
 | `mobile_only` | `/mobile-only` | Body `mobile only`; condition `device_view() == 'mobile'`. |
 | `is_mobile_only` | `/is-mobile-only` | Body `mobile only`; condition `is_device_view('mobile')`. |
@@ -197,7 +198,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | RES-07 | Trusted header beats detector | `TH` | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"tablet trusted_header"`, `Vary: [Cookie, X-Device-View]` | planned |
 | RES-08 | The view is resolved once per request | — (TwigBundle registered) | `GET /twig`, `UA=iphone`, the template and a `ViewResolvedEvent` listener read the view several times | the detector is called once; `ViewResolvedEvent` is dispatched once | planned |
 | RES-09 | Sub-requests read the main request's view | — | `GET /with-sub-request`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`; `ViewResolvedEvent` dispatched once; the sub-request has no `_device_view` attribute | planned |
-| RES-10 | The context lives in the main request | — | `GET /view`, `UA=iphone` | after `kernel.request`, the main request attribute `_device_view` is a `DeviceViewContext` | planned |
+| RES-10 | The context lives in the main request | — | `GET /view`, `UA=iphone` | after `kernel.request`, the main request attribute `_device_view` is a `DeviceViewContext` | active |
 | RES-11 | The resolver ignores the switch parameter when the method is not allowed | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Set-Cookie` | planned |
 | RES-12 | The resolver ignores the switch parameter when the switch is disabled | `switch: { enabled: false }` | `GET /view?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | planned |
 
@@ -205,13 +206,13 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| VW-01 | `default_view: mobile` | `default_view: mobile` | `GET /view`, `UA=empty` | 200 `"mobile default"` | planned |
-| VW-02 | `default_view: tablet` without user agent | `default_view: tablet` | `GET /view`, `UA=missing` | 200 `"tablet default"` | planned |
-| VW-03 | `tablet_as_mobile` maps a detected tablet | `tablet_as_mobile: true` | `GET /view`, `UA=ipad_legacy` | 200 `"mobile detector"` | planned |
+| VW-01 | `default_view: mobile` | `default_view: mobile` | `GET /view`, `UA=empty` | 200 `"mobile default"` | active |
+| VW-02 | `default_view: tablet` without user agent | `default_view: tablet` | `GET /view`, `UA=missing` | 200 `"tablet default"` | active |
+| VW-03 | `tablet_as_mobile` maps a detected tablet | `tablet_as_mobile: true` | `GET /view`, `UA=ipad_legacy` | 200 `"mobile detector"` | active |
 | VW-04 | `tablet_as_mobile` maps a remembered tablet | `tablet_as_mobile: true` | `GET /view`, `Cookie: device_view=tablet` | 200 `"mobile remembered"`, no `Set-Cookie` | planned |
 | VW-05 | `tablet_as_mobile` maps a switch to tablet, and the cookie stores the mapped view | `tablet_as_mobile: true`, `switch: { target: none }` | `GET /view?device_view=tablet` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)` | planned |
-| VW-06 | `tablet_as_mobile` maps `default_view: tablet` | `tablet_as_mobile: true`, `default_view: tablet` | `GET /view`, `UA=empty` | 200 `"mobile default"` | planned |
-| VW-07 | `tablet_as_mobile` leaves other views alone | `tablet_as_mobile: true` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"` | planned |
+| VW-06 | `tablet_as_mobile` maps `default_view: tablet` | `tablet_as_mobile: true`, `default_view: tablet` | `GET /view`, `UA=empty` | 200 `"mobile default"` | active |
+| VW-07 | `tablet_as_mobile` leaves other views alone | `tablet_as_mobile: true` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"` | active |
 | VW-08 | Renamed views: switch | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=m` | 302, `Location: /view`, `Set-Cookie: device_view=m; path=/; httponly; samesite=lax` | planned |
 | VW-09 | Renamed views: the canonical name is no longer a token | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view?device_view=mobile` | 200 `"d detector"`, no `Set-Cookie` | planned |
 | VW-10 | Renamed views: remembered | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=t` | 200 `"t remembered"` | planned |
@@ -229,9 +230,9 @@ mobiledetect/mobiledetectlib 4, which the PHP 7 lines cannot install (design.md 
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| DET-MD-01 | Every user agent fixture | — | `GET /view` once per entry of `tests/Fixtures/user-agents.php`, with its user agent | body `"<expected.mobile_detect> detector"`, or `"desktop default"` when it is null | planned |
-| DET-MD-02 | Reads the Request, never `$_SERVER` | — | `$_SERVER['HTTP_USER_AGENT']` = the `iphone` user agent; `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"` | planned |
-| DET-MD-03 | A new MobileDetect per call | — | one kernel: `GET /view` `UA=iphone`, then `GET /view` `UA=desktop_chrome`, then `UA=ipad_legacy` | `"mobile detector"`, `"desktop detector"`, `"tablet detector"` | planned |
+| DET-MD-01 | Every user agent fixture | — | `GET /view` once per entry of `tests/Fixtures/user-agents.php`, with its user agent | body `"<expected.mobile_detect> detector"`, or `"desktop default"` when it is null | active |
+| DET-MD-02 | Reads the Request, never `$_SERVER` | — | `$_SERVER['HTTP_USER_AGENT']` = the `iphone` user agent; `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"` | active |
+| DET-MD-03 | A new MobileDetect per call | — | one kernel: `GET /view` `UA=iphone`, then `GET /view` `UA=desktop_chrome`, then `UA=ipad_legacy` | `"mobile detector"`, `"desktop detector"`, `"tablet detector"` | active |
 | DET-MD-04 | Configured headers are passed and listed in `Vary` | `detector: { mobile_detect: { headers: [User-Agent, X-Device-User-Agent] } }` | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent, X-Device-User-Agent]` | planned |
 | DET-MD-05 | Headers not configured are not passed | — | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"desktop detector"`, `Vary: [Cookie, User-Agent]` | planned |
 | DET-MD-06 | PSR-16 cache | `detector: { mobile_detect: { cache: app.detector_cache } }` (a `Psr16Cache` over an `ArrayAdapter`) | `GET /view` `UA=iphone`, twice | `"mobile detector"` both times; the cache holds at least one item after the first request | planned (6.x+) |
@@ -279,7 +280,7 @@ mobiledetect/mobiledetectlib 4, which the PHP 7 lines cannot install (design.md 
 | DET-STA-01 | Static answer | `detector: { id: static, static: { view: tablet } }` | `GET /view`, `UA=iphone` | 200 `"tablet detector"`, `Vary: [Cookie]` | planned |
 | DET-STA-02 | Static default is desktop | `detector: { id: static }` | `GET /view`, `UA=iphone` | 200 `"desktop detector"` | planned |
 | DET-CUS-01 | Custom detector service | `detector: { id: app.header_detector }` (a test detector reading `X-Test-View`, `varyHeaders()` = `[X-Test-View]`) | `GET /view`, `X-Test-View: tablet` | 200 `"tablet detector"`, `Vary: [Cookie, X-Test-View]` | planned |
-| DET-CUS-02 | Custom detector answering null | `detector: { id: app.header_detector }` | `GET /view` | 200 `"desktop default"` | planned |
+| DET-CUS-02 | Custom detector answering null | `detector: { id: app.header_detector }` | `GET /view` | 200 `"desktop default"` | active |
 | DET-CUS-03 | The interface alias follows the configuration | `detector: { id: app.header_detector }` | container | `DeviceDetectorInterface` and `device_view.detector` resolve to `app.header_detector` | active |
 | DET-AUTO-01 | Auto prefers Matomo | `detector: { id: auto }`, both libraries installed | container and `GET /view` `UA=googlebot_smartphone` | the detector is the matomo one; 200 `"desktop detector"` | planned |
 | DET-AUTO-02 | Auto falls back to Mobile Detect | `detector: { id: auto }`, Matomo not installed | container and `GET /view` `UA=googlebot_smartphone` | the detector is the mobile_detect one; 200 `"mobile detector"` | planned |
@@ -764,11 +765,11 @@ The kernel runs with `debug: true`, TwigBundle, WebProfilerBundle and
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| FAC-01 | Readers | — | in a controller, `UA=iphone` | `getView()` Mobile, `getViewName()` `mobile`, `isMobile()` true, `isTablet()` false, `isDesktop()` false, `is('mobile')` true, `is(DeviceType::Mobile)` true, `is('tablet')` false, `getSource()` Detector | planned |
-| FAC-02 | Renamed view name | `views: { names: { mobile: m } }` | in a controller, `UA=iphone` | `getViewName()` `m`, `is('m')` true | planned |
-| FAC-03 | Outside a request | `default_view: tablet` | empty `RequestStack` (e.g. a console command) | `getView()` Tablet, `getSource()` Default, no exception, the detector is not called | planned |
-| FAC-04 | `setView()` outside a request | — | empty `RequestStack` | no exception; debug log `Ignored DeviceView::setView(): there is no request.` | planned |
-| FAC-05 | Unknown view name | — | `setView('phone')` and `is('phone')` in a controller | `InvalidArgumentException`, message `Unknown device view "phone". Expected one of: mobile, tablet, desktop.` | planned |
+| FAC-01 | Readers | — | in a controller, `UA=iphone` | `getView()` Mobile, `getViewName()` `mobile`, `isMobile()` true, `isTablet()` false, `isDesktop()` false, `is('mobile')` true, `is(DeviceType::Mobile)` true, `is('tablet')` false, `getSource()` Detector | active |
+| FAC-02 | Renamed view name | `views: { names: { mobile: m } }` | in a controller, `UA=iphone` | `getViewName()` `m`, `is('m')` true | active |
+| FAC-03 | Outside a request | `default_view: tablet` | empty `RequestStack` (e.g. a console command) | `getView()` Tablet, `getSource()` Default, no exception, the detector is not called | active |
+| FAC-04 | `setView()` outside a request | — | empty `RequestStack` | no exception; debug log `Ignored DeviceView::setView(): there is no request.` | active |
+| FAC-05 | Unknown view name | — | `setView('phone')` and `is('phone')` in a controller | `InvalidArgumentException`, message `Unknown device view "phone". Expected one of: mobile, tablet, desktop.` | active |
 | FAC-06 | Changes after the response is built | a `kernel.response` listener at priority -10 calling `setView('mobile', true)`, `setRemember(true)` and `setConsent(true)` | `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"`, no `Set-Cookie`; debug log `Ignored a device view change made after the response was built.` | planned |
 | FAC-07 | `getSwitchUrl()` | — | `GET /view?a=1`; `getSwitchUrl('mobile')`, `getSwitchUrl(DeviceType::Tablet, 'home')` | `/view?a=1&device_view=mobile`, `/?device_view=tablet` | planned |
 | FAC-08 | `getSwitchUrl()` keeps the base URL | — | front controller `/app`: `GET http://localhost/app/view`; same calls | `/app/view?device_view=mobile`, `/app/?device_view=tablet` | planned |
@@ -776,15 +777,15 @@ The kernel runs with `debug: true`, TwigBundle, WebProfilerBundle and
 | FAC-10 | `getSwitchUrl()` outside a request | — | empty `RequestStack`; `getSwitchUrl('mobile')` | `/?device_view=mobile` | planned |
 | FAC-11 | Unknown switch target | — | `getSwitchUrl('mobile', 'back')` called twice: in a controller during `GET /view`, and with an empty `RequestStack` | both calls throw `InvalidArgumentException`, message `Unknown switch target "back". Expected "current" or "home".` | planned |
 | FAC-12 | `setView()` after a read | — | in a controller, `UA=iphone`: read, then `setView('tablet')`, then read | `mobile`, then `tablet` with source Forced; `Vary: [Cookie, User-Agent]` (inputs already consulted stay) | planned |
-| FAC-13 | Sub-requests see the main view | — | `GET /with-sub-request`, `UA=iphone` | the sub-request controller's `getView()` is Mobile | planned |
-| FAC-14 | Autowiring | — | container | `DeviceView::class` is an alias of `device_view.device_view` | planned |
+| FAC-13 | Sub-requests see the main view | — | `GET /with-sub-request`, `UA=iphone` | the sub-request controller's `getView()` is Mobile | active |
+| FAC-14 | Autowiring | — | container | `DeviceView::class` is an alias of `device_view.device_view` | active |
 
 ## 23. Services (SVC), design.md sections 2 and 10
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | SVC-01 | Interface aliases | `TAC` | container | `DeviceDetectorInterface` → `device_view.detector`, `ConsentCheckerInterface` → `device_view.consent_checker`, `ViewStorageInterface` → `device_view.storage`, `RedirectPolicyInterface` → `device_view.redirect_policy`, `ViewResolverInterface` → `device_view.resolver`, `RememberPolicyInterface` → `device_view.remember_policy` | planned |
-| SVC-02 | `services.resolver` | `services: { resolver: app.tablet_resolver }` (always tablet, source default) | `GET /view`, `UA=iphone` | 200 `"tablet default"` | planned |
+| SVC-02 | `services.resolver` | `services: { resolver: app.tablet_resolver }` (always tablet, source default) | `GET /view`, `UA=iphone` | 200 `"tablet default"` | active |
 | SVC-03 | `services.redirect_policy` | `M`, `services: { redirect_policy: app.never_redirect }` | `GET http://www.example.com/`, `UA=iphone` | 200, no `Location` | planned |
 | SVC-04 | `services.remember_policy` | `services: { remember_policy: app.always_remember }` | `GET /view`, `UA=iphone` | `Set-Cookie: SC(mobile)` | planned |
 | SVC-05 | Decorating the detector | a service decorating `device_view.detector` that answers tablet | `GET /view`, `UA=iphone` | 200 `"tablet detector"` | planned |
@@ -797,11 +798,11 @@ The exception is `InvalidConfigurationException` unless said.
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | CFG-01 | Unknown key | `unknown_key: true` | container build | message contains `Unrecognized option "unknown_key" under "device_view"` | active |
-| CFG-02 | `default_view` enum | `default_view: phone` | container build | message contains `The value "phone" is not allowed for path "device_view.default_view"` | planned |
-| CFG-03 | `tablet_as_mobile` type | `tablet_as_mobile: 'yes'` | container build | message contains `Invalid type for path "device_view.tablet_as_mobile"` | planned |
-| CFG-04 | View names unique | `views: { names: { mobile: m, tablet: m } }` | container build | message contains `The view names must be unique: "m" is used twice.` | planned |
-| CFG-05 | View name pattern | `views: { names: { mobile: 'Mobile!' } }` | container build | message contains `The view name "Mobile!" is invalid: use lowercase letters, digits, "_" and "-" only.` | planned |
-| CFG-06 | Unknown view key | `views: { names: { phone: p } }` | container build | message contains `Unrecognized option "phone" under "device_view.views.names"` | planned |
+| CFG-02 | `default_view` enum | `default_view: phone` | container build | message contains `The value "phone" is not allowed for path "device_view.default_view"` | active |
+| CFG-03 | `tablet_as_mobile` type | `tablet_as_mobile: 'yes'` | container build | message contains `Invalid type for path "device_view.tablet_as_mobile"` | active |
+| CFG-04 | View names unique | `views: { names: { mobile: m, tablet: m } }` | container build | message contains `The view names must be unique: "m" is used twice.` | active |
+| CFG-05 | View name pattern | `views: { names: { mobile: 'Mobile!' } }` | container build | message contains `The view name "Mobile!" is invalid: use lowercase letters, digits, "_" and "-" only.` | active |
+| CFG-06 | Unknown view key | `views: { names: { phone: p } }` | container build | message contains `Unrecognized option "phone" under "device_view.views.names"` | active |
 | CFG-07 | `detector.id` service missing | `detector: { id: app.nope }` | container build | message contains `The service "app.nope" set in device_view.detector.id does not exist.` | active |
 | CFG-08 | `detector.id` wrong class | `detector: { id: app.not_a_detector }` | container build | message contains `The service "app.not_a_detector" set in device_view.detector.id must implement DeviceViewBundle\Detector\DeviceDetectorInterface.` | active |
 | CFG-09 | Empty chain | `detector: { id: chain, chain: [] }` | container build | message contains `device_view.detector.chain must list at least one detector.` | planned |
@@ -844,7 +845,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-46 | Auto without any detector package | `detector: { id: auto }`, neither library installed | container build | `LogicException`, the DET-AUTO-03 message | active |
 | CFG-47 | Mobile Detect not installed | `detector: { id: mobile_detect }`, mobiledetect not installed | container build | `LogicException`, message `The "mobile_detect" detector needs mobiledetect/mobiledetectlib. Run "composer require mobiledetect/mobiledetectlib", or set device_view.detector.id to another detector.` | active |
 | CFG-48 | Matomo not installed | `detector: { id: matomo }`, matomo not installed | container build | `LogicException`, message `The "matomo" detector needs matomo/device-detector. Run "composer require matomo/device-detector", or set device_view.detector.id to another detector.` | planned |
-| CFG-49 | `services.resolver` service | `services: { resolver: app.not_a_resolver }` | container build | message contains `The service "app.not_a_resolver" set in device_view.services.resolver must implement DeviceViewBundle\Resolver\ViewResolverInterface.` | planned |
+| CFG-49 | `services.resolver` service | `services: { resolver: app.not_a_resolver }` | container build | message contains `The service "app.not_a_resolver" set in device_view.services.resolver must implement DeviceViewBundle\Resolver\ViewResolverInterface.` | active |
 | CFG-50 | `services.redirect_policy` service | `services: { redirect_policy: app.nope }` | container build | message contains `The service "app.nope" set in device_view.services.redirect_policy does not exist.` | planned |
 | CFG-51 | `services.remember_policy` service | `services: { remember_policy: app.not_a_policy }` | container build | message contains `The service "app.not_a_policy" set in device_view.services.remember_policy must implement DeviceViewBundle\Remember\RememberPolicyInterface.` | planned |
 | CFG-52 | The defaults are valid | `{}` (no `detector` key) with both libraries installed | container build | builds | active |
