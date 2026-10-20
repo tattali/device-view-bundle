@@ -473,14 +473,14 @@ is false or null.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-CMP-01 | Allowed | `complianz` | `Cookie: cmplz_preferences=allow` | `hasConsent` true | planned |
-| CON-CMP-02 | Denied | `complianz` | `Cookie: cmplz_preferences=deny` | `hasConsent` false | planned |
-| CON-CMP-03 | No cookie | `complianz` | no cookie | `hasConsent` null | planned |
-| CON-CMP-04 | Other value | `complianz` | `Cookie: cmplz_preferences=maybe` | `hasConsent` null | planned |
-| CON-CMP-05 | Exact value only | `complianz` | `Cookie: cmplz_preferences=ALLOW` | `hasConsent` null | planned |
-| CON-CMP-06 | Custom key | `consent: { provider: complianz, key: statistics }` | `Cookie: cmplz_statistics=allow; cmplz_preferences=deny` | `hasConsent` true | planned |
-| CON-CMP-07 | Custom prefix | `consent: { provider: complianz, cookie: site_ }` | `Cookie: site_preferences=allow` | `hasConsent` true | planned |
-| CON-CMP-08 | Array cookie | `complianz` | cookie `cmplz_preferences` = `['a' => 'allow']` | `hasConsent` null, no error | planned |
+| CON-CMP-01 | Allowed | `complianz` | `Cookie: cmplz_preferences=allow` | `hasConsent` true | active |
+| CON-CMP-02 | Denied | `complianz` | `Cookie: cmplz_preferences=deny` | `hasConsent` false | active |
+| CON-CMP-03 | No cookie | `complianz` | no cookie | `hasConsent` null | active |
+| CON-CMP-04 | Other value | `complianz` | `Cookie: cmplz_preferences=maybe` | `hasConsent` null | active |
+| CON-CMP-05 | Exact value only | `complianz` | `Cookie: cmplz_preferences=ALLOW` | `hasConsent` null | active |
+| CON-CMP-06 | Custom key | `consent: { provider: complianz, key: statistics }` | `Cookie: cmplz_statistics=allow; cmplz_preferences=deny` | `hasConsent` true | active |
+| CON-CMP-07 | Custom prefix | `consent: { provider: complianz, cookie: site_ }` | `Cookie: site_preferences=allow` | `hasConsent` true | active |
+| CON-CMP-08 | Array cookie | `complianz` | cookie `cmplz_preferences` = `['a' => 'allow']` | `hasConsent` null, no error | active |
 
 ### Cookiebot (CON-CB): cookie `CookieConsent`, key `preferences`
 

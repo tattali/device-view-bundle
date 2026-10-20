@@ -1,0 +1,5 @@
+# source: cmplz_set_consent() and cmplz_set_cookie() in cookiebanner/js/complianz.js of Complianz 7.5.6 (GitHub complianz/complianz-gdpr, tag v7.5.6, commit ff16dc698ffeb6b3d03c99fd6f7ae9c46decef8c): document.cookie = prefix + category + "=" + value, the value being allow or deny and the prefix cmplz_ (cmplz_rt_ on the main site of a multisite network without set_cookies_on_root: get_cookie_prefix() in cookiebanner/class-banner-loader.php); Complianz's own PHP check cmplz_has_consent() in functions.php grants only on "allow"
+# date: 2026-10-20
+# captured: document.cookie after running that complianz.js in headless Chrome on a local page (127.0.0.1, the complianz settings object written by hand: consenttype optin, geoip off, no network), choice: only the preferences box checked, then the .cmplz-save-preferences button
+# hasConsent: true
+Cookie: cmplz_policy_id=14; cmplz_marketing=deny; cmplz_statistics=deny; cmplz_preferences=allow; cmplz_functional=allow; cmplz_banner-status=dismissed
