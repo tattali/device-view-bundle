@@ -52,12 +52,10 @@ final readonly class RedirectPolicy
     /**
      * The Location and status of the device redirect of a request served with the view, or null
      * when the request stays here.
-     *
-     * @return array{string, int}|null
      */
-    public function deviceRedirect(Request $request, DeviceType $view): ?array
+    public function deviceRedirect(Request $request, DeviceType $view): ?RedirectTarget
     {
-        $target = $this->target($request, $view);
+        $target = $this->hostFor($request, $view);
         if (null === $target) {
             return null;
         }
@@ -65,7 +63,7 @@ final readonly class RedirectPolicy
         [$host, $redirect] = $target;
         $url = $this->urls->hostUrl($request, $host, $this->names->nameOf($view), RedirectAction::Redirect === $redirect['action'], $redirect['keep_query']);
 
-        return [$url, $redirect['status']];
+        return new RedirectTarget($url, $redirect['status']);
     }
 
     /**
@@ -75,7 +73,7 @@ final readonly class RedirectPolicy
      */
     public function switchUrl(Request $request, DeviceType $view, SwitchTarget $switchTarget): ?string
     {
-        $target = $this->target($request, $view);
+        $target = $this->hostFor($request, $view);
         if (null === $target) {
             return null;
         }
@@ -92,7 +90,7 @@ final readonly class RedirectPolicy
      *
      * @return array{RedirectHost, array{host: string, action: RedirectAction, status: int, keep_query: bool}}|null
      */
-    private function target(Request $request, DeviceType $view): ?array
+    private function hostFor(Request $request, DeviceType $view): ?array
     {
         $redirect = $this->redirects[$view->value] ?? null;
         if (null === $redirect || RedirectAction::None === $redirect['action']) {

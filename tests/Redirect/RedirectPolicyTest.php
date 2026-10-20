@@ -6,6 +6,7 @@ namespace DeviceViewBundle\Tests\Redirect;
 
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Redirect\RedirectPolicy;
+use DeviceViewBundle\Redirect\RedirectTarget;
 use DeviceViewBundle\Tests\App\TestLogger;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
@@ -32,7 +33,7 @@ final class RedirectPolicyTest extends TestCase
         $request = Request::create('http://www.example.com/blog/post?a=1&device_view=x');
 
         self::assertTrue($policy->hasRedirects());
-        self::assertSame(['https://m.example.com/blog/post?a=1&device_view=mobile', 308], $policy->deviceRedirect($request, DeviceType::Mobile));
+        self::assertEquals(new RedirectTarget('https://m.example.com/blog/post?a=1&device_view=mobile', 308), $policy->deviceRedirect($request, DeviceType::Mobile));
         self::assertNull($policy->deviceRedirect($request, DeviceType::Desktop), 'a view without a redirect stays');
     }
 
@@ -40,8 +41,8 @@ final class RedirectPolicyTest extends TestCase
     {
         $request = Request::create('http://www.example.com/blog/post?a=1');
 
-        self::assertSame(['https://m.example.com/?device_view=mobile', 302], self::policy(['mobile' => self::options('https://m.example.com', RedirectAction::RedirectWithoutPath)])->deviceRedirect($request, DeviceType::Mobile));
-        self::assertSame(['https://m.example.com/blog/post?device_view=mobile', 302], self::policy(['mobile' => self::options('https://m.example.com', keepQuery: false)])->deviceRedirect($request, DeviceType::Mobile));
+        self::assertEquals(new RedirectTarget('https://m.example.com/?device_view=mobile', 302), self::policy(['mobile' => self::options('https://m.example.com', RedirectAction::RedirectWithoutPath)])->deviceRedirect($request, DeviceType::Mobile));
+        self::assertEquals(new RedirectTarget('https://m.example.com/blog/post?device_view=mobile', 302), self::policy(['mobile' => self::options('https://m.example.com', keepQuery: false)])->deviceRedirect($request, DeviceType::Mobile));
         self::assertNull(self::policy(['mobile' => self::options('https://m.example.com', RedirectAction::None)])->deviceRedirect($request, DeviceType::Mobile));
     }
 
@@ -69,7 +70,7 @@ final class RedirectPolicyTest extends TestCase
     {
         $policy = new RedirectPolicy(['tablet' => self::options('https://t.example.com')], new ViewNames(['tablet' => 't']), new SwitchUrlGenerator('view'));
 
-        self::assertSame(['https://t.example.com/?view=t', 302], $policy->deviceRedirect(Request::create('http://www.example.com/'), DeviceType::Tablet));
+        self::assertEquals(new RedirectTarget('https://t.example.com/?view=t', 302), $policy->deviceRedirect(Request::create('http://www.example.com/'), DeviceType::Tablet));
     }
 
     public function testAnInvalidHostDisablesItsRedirectWithAnErrorLog(): void

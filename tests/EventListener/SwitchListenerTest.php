@@ -122,7 +122,7 @@ final class SwitchListenerTest extends TestCase
         [$request, $context] = self::request('http://www.example.com/view?a=1&device_view=tablet');
         $event = self::event($request);
 
-        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), status: 303, hosts: self::hosts(), resolver: new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))], tabletAsMobile: true))->onKernelRequest($event);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), status: 303, redirectPolicy: self::redirectPolicy(), resolver: new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))], tabletAsMobile: true))->onKernelRequest($event);
 
         $response = $event->getResponse();
         self::assertInstanceOf(RedirectResponse::class, $response);
@@ -137,7 +137,7 @@ final class SwitchListenerTest extends TestCase
         [$request] = self::request('http://www.example.com/view?device_view=mobile');
         $event = self::event($request);
 
-        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), hosts: self::hosts())->onKernelRequest($event);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy())->onKernelRequest($event);
 
         $response = $event->getResponse();
         self::assertInstanceOf(RedirectResponse::class, $response);
@@ -149,7 +149,7 @@ final class SwitchListenerTest extends TestCase
         [$request, $context] = self::request('http://www.example.com/view?device_view=mobile');
         $event = self::event($request);
 
-        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), hosts: new RedirectPolicy([], new ViewNames(), new SwitchUrlGenerator()), resolver: new ViewResolver([]))->onKernelRequest($event);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: new RedirectPolicy([], new ViewNames(), new SwitchUrlGenerator()), resolver: new ViewResolver([]))->onKernelRequest($event);
 
         $response = $event->getResponse();
         self::assertInstanceOf(RedirectResponse::class, $response);
@@ -157,7 +157,7 @@ final class SwitchListenerTest extends TestCase
         self::assertNull($context->resolved);
     }
 
-    private static function hosts(): RedirectPolicy
+    private static function redirectPolicy(): RedirectPolicy
     {
         return new RedirectPolicy(
             ['mobile' => ['host' => 'https://m.example.com', 'action' => RedirectAction::Redirect, 'status' => 301, 'keep_query' => true]],

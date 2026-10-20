@@ -29,9 +29,9 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 final readonly class SwitchListener
 {
     /**
-     * @param int                 $status       the redirect status: 302, 303 or 307
-     * @param string|null         $cacheControl the Cache-Control of the redirect, or null to leave it alone
-     * @param RedirectPolicy|null $hosts        the redirect policy of the views served on their own host, used with $resolver; without them the switch stays on the current host
+     * @param int                 $status         the redirect status: 302, 303 or 307
+     * @param string|null         $cacheControl   the Cache-Control of the redirect, or null to leave it alone
+     * @param RedirectPolicy|null $redirectPolicy the redirect policy of the views served on their own host, used with $resolver; without them the switch stays on the current host
      */
     public function __construct(
         private SwitchParameter $parameter,
@@ -39,7 +39,7 @@ final readonly class SwitchListener
         private SwitchTarget $target = SwitchTarget::Current,
         private int $status = 302,
         private ?string $cacheControl = 'no-store, private',
-        private ?RedirectPolicy $hosts = null,
+        private ?RedirectPolicy $redirectPolicy = null,
         private ?ViewResolverInterface $resolver = null,
     ) {
     }
@@ -83,8 +83,8 @@ final readonly class SwitchListener
     private function location(Request $request, DeviceViewContext $context): string
     {
         $url = null;
-        if (null !== $this->hosts && null !== $this->resolver && $this->hosts->hasRedirects()) {
-            $url = $this->hosts->switchUrl($request, $context->resolve($this->resolver, $request)->view, $this->target);
+        if (null !== $this->redirectPolicy && null !== $this->resolver && $this->redirectPolicy->hasRedirects()) {
+            $url = $this->redirectPolicy->switchUrl($request, $context->resolve($this->resolver, $request)->view, $this->target);
         }
 
         return $url ?? $this->urls->redirectUrl($request, $this->target);

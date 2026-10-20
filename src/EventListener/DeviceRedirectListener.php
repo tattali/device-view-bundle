@@ -52,10 +52,9 @@ final readonly class DeviceRedirectListener
             return;
         }
 
-        [$url, $status] = $redirect;
         // BeforeRedirectEvent, with the reason "device", is dispatched here once it exists: it
         // may change the URL or the status, or cancel the redirect
-        $response = new RedirectResponse($url, $status);
+        $response = new RedirectResponse($redirect->url, $redirect->status);
         if (null !== $this->cacheControl) {
             $response->headers->set('Cache-Control', $this->cacheControl);
         }
