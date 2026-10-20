@@ -441,18 +441,18 @@ is false or null.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-CC-01 | Category accepted | `cookieconsent` | `Cookie: cc_cookie={"categories":["necessary","preferences"],"revision":0}` | `hasConsent` true | planned |
-| CON-CC-02 | Category not accepted | `cookieconsent` | `Cookie: cc_cookie={"categories":["necessary"],"revision":0}` | `hasConsent` false | planned |
-| CON-CC-03 | No cookie | `cookieconsent` | no cookie | `hasConsent` null | planned |
-| CON-CC-04 | Value still URL-encoded | `cookieconsent` | `Cookie: cc_cookie=%7B%22categories%22%3A%5B%22preferences%22%5D%7D` | `hasConsent` true | planned |
-| CON-CC-05 | `category.service` key, service accepted | `consent: { provider: cookieconsent, key: preferences.device_view }` | `Cookie: cc_cookie={"categories":["preferences"],"services":{"preferences":["device_view"]}}` | `hasConsent` true | planned |
-| CON-CC-06 | `category.service` key, service not accepted | `consent: { provider: cookieconsent, key: preferences.device_view }` | `Cookie: cc_cookie={"categories":["preferences"],"services":{"preferences":[]}}` | `hasConsent` false | planned |
-| CON-CC-07 | `category.service` key, category not accepted | `consent: { provider: cookieconsent, key: preferences.device_view }` | `Cookie: cc_cookie={"categories":["necessary"],"services":{"necessary":[]}}` | `hasConsent` false | planned |
-| CON-CC-08 | Garbage | `cookieconsent` | `Cookie: cc_cookie={not json` | `hasConsent` null | planned |
-| CON-CC-09 | JSON without categories | `cookieconsent` | `Cookie: cc_cookie={"revision":0}` | `hasConsent` null | planned |
-| CON-CC-10 | Categories not a list | `cookieconsent` | `Cookie: cc_cookie={"categories":"preferences"}` | `hasConsent` null | planned |
-| CON-CC-11 | Array cookie | `cookieconsent` | cookie `cc_cookie` = `['categories' => 'preferences']` | `hasConsent` null, no error | planned |
-| CON-CC-12 | Custom cookie name and key | `consent: { provider: cookieconsent, cookie: cc_site, key: analytics }` | `Cookie: cc_site={"categories":["analytics"]}` | `hasConsent` true | planned |
+| CON-CC-01 | Category accepted | `cookieconsent` | `Cookie: cc_cookie={"categories":["necessary","preferences"],"revision":0}` | `hasConsent` true | active |
+| CON-CC-02 | Category not accepted | `cookieconsent` | `Cookie: cc_cookie={"categories":["necessary"],"revision":0}` | `hasConsent` false | active |
+| CON-CC-03 | No cookie | `cookieconsent` | no cookie | `hasConsent` null | active |
+| CON-CC-04 | Value still URL-encoded | `cookieconsent` | `Cookie: cc_cookie=%7B%22categories%22%3A%5B%22preferences%22%5D%7D` | `hasConsent` true | active |
+| CON-CC-05 | `category.service` key, service accepted | `consent: { provider: cookieconsent, key: preferences.device_view }` | `Cookie: cc_cookie={"categories":["preferences"],"services":{"preferences":["device_view"]}}` | `hasConsent` true | active |
+| CON-CC-06 | `category.service` key, service not accepted | `consent: { provider: cookieconsent, key: preferences.device_view }` | `Cookie: cc_cookie={"categories":["preferences"],"services":{"preferences":[]}}` | `hasConsent` false | active |
+| CON-CC-07 | `category.service` key, category not accepted | `consent: { provider: cookieconsent, key: preferences.device_view }` | `Cookie: cc_cookie={"categories":["necessary"],"services":{"necessary":[]}}` | `hasConsent` false | active |
+| CON-CC-08 | Garbage | `cookieconsent` | `Cookie: cc_cookie={not json` | `hasConsent` null | active |
+| CON-CC-09 | JSON without categories | `cookieconsent` | `Cookie: cc_cookie={"revision":0}` | `hasConsent` null | active |
+| CON-CC-10 | Categories not a list | `cookieconsent` | `Cookie: cc_cookie={"categories":"preferences"}` | `hasConsent` null | active |
+| CON-CC-11 | Array cookie | `cookieconsent` | cookie `cc_cookie` = `['categories' => 'preferences']` | `hasConsent` null, no error | active |
+| CON-CC-12 | Custom cookie name and key | `consent: { provider: cookieconsent, cookie: cc_site, key: analytics }` | `Cookie: cc_site={"categories":["analytics"]}` | `hasConsent` true | active |
 
 ### Klaro (CON-KLA): cookie `klaro`, key `device_view`
 
