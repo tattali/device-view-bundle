@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use DeviceViewBundle\EventListener\RememberListener;
 use DeviceViewBundle\Remember\CookieStorage;
+use DeviceViewBundle\Remember\NullStorage;
 use DeviceViewBundle\Remember\RememberPolicy;
+use DeviceViewBundle\Remember\SessionStorage;
 use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\Step\RememberedStep;
 use Symfony\Component\DependencyInjection\Argument\AbstractArgument;
@@ -13,9 +15,10 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\KernelEvents;
 
-// Remembering the view: the cookie storage, its reader (a step of the resolver, see
-// resolver.php), the remember policy and the listener that writes on the response.
-// DeviceViewBundle::loadExtension() sets the arguments that come from the configuration.
+// Remembering the view: the built-in storages, the reader of the storage (a step of the
+// resolver, see resolver.php), the remember policy and the listener that writes on the response.
+// DeviceViewBundle::loadExtension() sets the arguments that come from the configuration, and
+// device_view.storage, an alias of the storage remember.storage names.
 return static function (ContainerConfigurator $container): void {
     $container->services()
         ->set('device_view.storage.cookie', CookieStorage::class)
@@ -28,7 +31,9 @@ return static function (ContainerConfigurator $container): void {
                 new AbstractArgument('remember.cookie.same_site'),
                 new AbstractArgument('remember.cookie.raw'),
             ])
-        ->alias('device_view.storage', 'device_view.storage.cookie')
+        ->set('device_view.storage.session', SessionStorage::class)
+            ->args([new AbstractArgument('remember.session.key')])
+        ->set('device_view.storage.none', NullStorage::class)
         ->alias(ViewStorageInterface::class, 'device_view.storage')
 
         ->set('device_view.resolver.step.remembered', RememberedStep::class)

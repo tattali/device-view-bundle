@@ -163,7 +163,11 @@ return static function (DefinitionConfigurator $definition): void {
                 ->addDefaultsIfNotSet()
                 ->validate()
                     ->always(static function (array $remember): array {
-                        /** @var array{lifetime: int, consented_lifetime: int, cookie: array{secure: bool|string, same_site: string|null}} $remember */
+                        /** @var array{storage: string, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{secure: bool|string, same_site: string|null}} $remember */
+                        if ('none' === $remember['storage'] && $remember['detected_view']) {
+                            throw new InvalidArgumentException('device_view.remember.detected_view cannot be true when device_view.remember.storage is "none".');
+                        }
+
                         if ($remember['lifetime'] > 0 && $remember['consented_lifetime'] < $remember['lifetime']) {
                             throw new InvalidArgumentException(sprintf('device_view.remember.consented_lifetime (%d) must be greater than or equal to device_view.remember.lifetime (%d).', $remember['consented_lifetime'], $remember['lifetime']));
                         }
@@ -176,6 +180,11 @@ return static function (DefinitionConfigurator $definition): void {
                     })
                 ->end()
                 ->children()
+                    ->stringNode('storage')
+                        ->info('Where the view is remembered: cookie, session (the framework session, never started just to read), none, or the id of a service implementing DeviceViewBundle\Remember\ViewStorageInterface.')
+                        ->defaultValue('cookie')
+                        ->cannotBeEmpty()
+                    ->end()
                     ->booleanNode('on_switch')
                         ->info('Remember the view a visitor switches to.')
                         ->defaultTrue()
@@ -233,6 +242,17 @@ return static function (DefinitionConfigurator $definition): void {
                             ->booleanNode('raw')
                                 ->info('Write the value without URL encoding.')
                                 ->defaultFalse()
+                            ->end()
+                        ->end()
+                    ->end()
+                    ->arrayNode('session')
+                        ->info('The session storage.')
+                        ->addDefaultsIfNotSet()
+                        ->children()
+                            ->stringNode('key')
+                                ->info('The session attribute holding the view name.')
+                                ->defaultValue('_device_view')
+                                ->cannotBeEmpty()
                             ->end()
                         ->end()
                     ->end()

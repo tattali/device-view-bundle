@@ -7,6 +7,7 @@ namespace DeviceViewBundle\Tests\Resolver\Step;
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Remember\CookieStorage;
 use DeviceViewBundle\Resolver\Step\RememberedStep;
+use DeviceViewBundle\Tests\App\Remember\ArrayStorage;
 use DeviceViewBundle\Tests\App\TestLogger;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
@@ -77,15 +78,31 @@ final class RememberedStepTest extends TestCase
         self::assertCount(1, $logger->records);
     }
 
-    public function testAnArrayIsLoggedButNotMarked(): void
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function nonStringValues(): iterable
+    {
+        yield 'array' => [['a' => 'mobile']];
+        yield 'integer' => [3];
+        yield 'boolean' => [true];
+    }
+
+    /**
+     * Whether the storage can remove the value is up to its clear().
+     */
+    #[DataProvider('nonStringValues')]
+    public function testAnyOtherValueIsLoggedAndMarked(mixed $value): void
     {
         $logger = new TestLogger();
         $context = new DeviceViewContext();
+        $storage = new ArrayStorage();
+        $storage->value = $value;
 
-        $result = new RememberedStep(new CookieStorage(), new ViewNames(), $logger)->find(Request::create('/', cookies: ['device_view' => ['a' => 'mobile']]), $context);
+        $result = new RememberedStep($storage, new ViewNames(), $logger)->find(Request::create('/'), $context);
 
         self::assertNull($result->view);
-        self::assertFalse($context->forgedStoredValue, 'expiring device_view would not remove device_view[a]');
+        self::assertTrue($context->forgedStoredValue);
         self::assertSame([self::INVALID], $logger->messages(LogLevel::DEBUG));
     }
 

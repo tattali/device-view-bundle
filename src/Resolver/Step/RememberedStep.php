@@ -15,10 +15,10 @@ use Symfony\Component\HttpFoundation\Request;
  * The view the remember storage holds. The storage's inputs count as read even when it holds
  * nothing, since the answer depends on them.
  *
- * A stored value that is not a configured view name is ignored and logged at debug level. When
- * it is a string, the context records it as forged, so the response expires it. Any other value
- * (an array, from a cookie named device_view[a]) is only ignored: expiring the storage would not
- * remove it.
+ * A stored value that is not a configured view name is ignored and logged at debug level, and
+ * the context records it as forged, so the response removes it. Whether the storage can remove
+ * it is up to the storage: the cookie storage leaves an array (a cookie named device_view[a])
+ * alone, the session storage removes any value.
  *
  * @internal
  */
@@ -49,9 +49,7 @@ final readonly class RememberedStep implements ResolutionStepInterface
         $view = $this->names->parse($stored);
         if (null === $view) {
             $this->logger?->debug('Ignored an invalid device view from the remember storage.');
-            if (\is_string($stored)) {
-                $context->markForgedStoredValue();
-            }
+            $context->markForgedStoredValue();
         }
 
         return new StepResult($view, $consulted);

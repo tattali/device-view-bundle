@@ -105,7 +105,7 @@ final class CookieStorageTest extends TestCase
         $storage = new CookieStorage('dv', '/shop', '.example.com', null, false, Cookie::SAMESITE_STRICT, true);
         $response = new Response();
 
-        $storage->clear(Request::create('https://localhost/'), $response);
+        self::assertTrue($storage->clear(Request::create('https://localhost/'), $response));
 
         $cookies = $response->headers->getCookies();
         self::assertCount(1, $cookies);
@@ -118,6 +118,25 @@ final class CookieStorageTest extends TestCase
         self::assertTrue($cookie->isSecure());
         self::assertFalse($cookie->isHttpOnly());
         self::assertSame(Cookie::SAMESITE_STRICT, $cookie->getSameSite());
+    }
+
+    public function testClearExpiresAStringCookie(): void
+    {
+        $response = new Response();
+
+        self::assertTrue(new CookieStorage()->clear(Request::create('/', cookies: ['device_view' => 'phone']), $response));
+
+        self::assertTrue($response->headers->getCookies()[0]->isCleared());
+    }
+
+    public function testClearCannotRemoveAnArrayCookie(): void
+    {
+        // a device_view deletion would not remove the browser's device_view[a] cookie
+        $response = new Response();
+
+        self::assertFalse(new CookieStorage()->clear(Request::create('/', cookies: ['device_view' => ['a' => 'mobile']]), $response));
+
+        self::assertSame([], $response->headers->getCookies());
     }
 
     public function testClearOverHttpWithTheDefaults(): void

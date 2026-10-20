@@ -240,6 +240,20 @@ final class RememberListenerTest extends TestCase
         self::assertTrue($response->headers->getCookies()[0]->isCleared());
     }
 
+    public function testAValueTheStorageCannotRemoveLeavesTheResponseAlone(): void
+    {
+        $request = Request::create('/view', cookies: ['device_view' => ['a' => 'mobile']]);
+        $context = new DeviceViewContext();
+        $request->attributes->set(DeviceViewContext::ATTRIBUTE, $context);
+        $context->markForgedStoredValue();
+        $response = new Response()->setPublic();
+
+        self::respond(self::listener(), $request, $response);
+
+        self::assertSame([], $response->headers->getCookies());
+        self::assertSame('public', $response->headers->get('Cache-Control'), 'nothing was removed');
+    }
+
     public function testAWriteReplacesAForgedValue(): void
     {
         [$request, $context] = self::request('/view?device_view=tablet');
@@ -275,6 +289,19 @@ final class RememberListenerTest extends TestCase
 
         self::assertSame([], $response->headers->getCookies());
         self::assertFalse($context->responseBuilt);
+    }
+
+    public function testWithoutStorageNothingIsWrittenNorExpired(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+        $context->markForgedStoredValue();
+
+        $response = self::respond(self::listener(withStorage: false), $request, new Response()->setPublic()->setMaxAge(60));
+
+        self::assertSame([], $response->headers->getCookies());
+        self::assertSame('max-age=60, public', $response->headers->get('Cache-Control'), 'nothing was remembered');
+        self::assertTrue($context->responseBuilt);
     }
 
     public function testARequestWithoutContextIsLeftAlone(): void
@@ -316,9 +343,9 @@ final class RememberListenerTest extends TestCase
         ]);
     }
 
-    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true, bool $tabletAsMobile = false): RememberListener
+    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true, bool $tabletAsMobile = false, bool $withStorage = true): RememberListener
     {
-        return new RememberListener(self::resolver($names), new CookieStorage(), $policy, $names, $privateWhenRemembering, $tabletAsMobile);
+        return new RememberListener(self::resolver($names), $withStorage ? new CookieStorage() : null, $policy, $names, $privateWhenRemembering, $tabletAsMobile);
     }
 
     /**

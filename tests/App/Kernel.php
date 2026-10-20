@@ -64,15 +64,17 @@ final class Kernel extends BaseKernel
     /**
      * @param array<string, mixed>        $deviceViewConfig the device_view configuration
      * @param array<string, class-string> $services         public services of the application, by id
+     * @param array<string, mixed>        $framework        framework configuration added to the baseline, e.g. a session
      */
     public function __construct(
         private readonly array $deviceViewConfig = [],
         string $environment = 'test',
         bool $debug = false,
         private readonly array $services = [],
+        private readonly array $framework = [],
     ) {
         parent::__construct($environment, $debug);
-        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug, $services]));
+        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug, $services, $framework]));
     }
 
     #[\Override]
@@ -163,7 +165,7 @@ final class Kernel extends BaseKernel
         $container->extension('framework', [
             'secret' => 'device-view-bundle-tests',
             'test' => true,
-        ]);
+        ] + $this->framework);
         $container->extension('device_view', $this->deviceViewConfig);
 
         $services = $container->services();

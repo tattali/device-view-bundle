@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace DeviceViewBundle;
 
 use DeviceViewBundle\DependencyInjection\Compiler\CheckConfiguredServicesPass;
+use DeviceViewBundle\DependencyInjection\Compiler\CheckSessionStoragePass;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\Detector\MobileDetectDetector;
+use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\ViewSwitch\SwitchTarget;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
@@ -35,6 +38,7 @@ final class DeviceViewBundle extends AbstractBundle
     public function build(ContainerBuilder $container): void
     {
         $container->addCompilerPass(new CheckConfiguredServicesPass());
+        $container->addCompilerPass(new CheckSessionStoragePass());
     }
 
     /**
@@ -68,12 +72,13 @@ final class DeviceViewBundle extends AbstractBundle
             }
             $id = 'device_view.detector.mobile_detect';
         } else {
+            self::assertNotTheAlias($id, 'device_view.detector', 'device_view.detector.id');
             $checks[] = [$id, 'device_view.detector.id', DeviceDetectorInterface::class];
         }
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, remember: array{on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, http_cache: array{private_when_remembering: bool}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -109,6 +114,16 @@ final class DeviceViewBundle extends AbstractBundle
             $cookie['same_site'],
             $cookie['raw'],
         ]);
+        $builder->getDefinition('device_view.storage.session')->replaceArgument(0, $remember['session']['key']);
+        $storage = $remember['storage'];
+        if (\in_array($storage, ['cookie', 'session', 'none'], true)) {
+            $storage = 'device_view.storage.'.$storage;
+        } else {
+            self::assertNotTheAlias($storage, 'device_view.storage', 'device_view.remember.storage');
+            $checks[] = [$storage, 'device_view.remember.storage', ViewStorageInterface::class];
+        }
+        $container->services()->alias('device_view.storage', $storage);
+        $builder->setParameter(CheckSessionStoragePass::PARAMETER, 'session' === $remember['storage']);
         $builder->getDefinition('device_view.remember_policy')->setArguments([
             $remember['on_switch'],
             $remember['detected_view'],
@@ -116,12 +131,15 @@ final class DeviceViewBundle extends AbstractBundle
             $remember['consented_lifetime'],
         ]);
         $builder->getDefinition('device_view.remember_listener')
+            // nothing is remembered nor expired without a storage
+            ->replaceArgument(1, 'none' === $remember['storage'] ? null : new Reference('device_view.storage'))
             ->replaceArgument(4, $config['http_cache']['private_when_remembering'])
             ->replaceArgument(5, $tabletAsMobile)
         ;
 
         $resolver = $config['services']['resolver'];
         if (null !== $resolver) {
+            self::assertNotTheAlias($resolver, 'device_view.resolver', 'device_view.services.resolver');
             $checks[] = [$resolver, 'device_view.services.resolver', ViewResolverInterface::class];
         }
         $container->services()->alias('device_view.resolver', $resolver ?? 'device_view.resolver.default');
@@ -139,6 +157,16 @@ final class DeviceViewBundle extends AbstractBundle
         }
 
         throw new \LogicException('No device detector is installed. Run `composer require mobiledetect/mobiledetectlib` (or `matomo/device-detector`), or set `device_view.detector.id` to `client_hints` or to your own service id.');
+    }
+
+    /**
+     * A service id set in the configuration cannot be the alias the bundle points to it.
+     */
+    private static function assertNotTheAlias(string $id, string $alias, string $path): void
+    {
+        if ($alias === $id) {
+            throw new InvalidConfigurationException(\sprintf('%s cannot be "%s", the alias it sets: set it to the id of your own service.', $path, $alias));
+        }
     }
 
     private static function isInstalled(string $package, string $class): bool

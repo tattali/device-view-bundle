@@ -137,6 +137,15 @@ final class ResolutionConfigTest extends TestCase
         $this->boot(['services' => ['resolver' => 'app.not_a_resolver']], ['app.not_a_resolver' => \stdClass::class]);
     }
 
+    public function testServicesResolverCannotBeTheResolverAlias(): void
+    {
+        // the CFG-58 message for services.resolver
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('device_view.services.resolver cannot be "device_view.resolver", the alias it sets: set it to the id of your own service.');
+
+        $this->boot(['services' => ['resolver' => 'device_view.resolver']]);
+    }
+
     public function testServicesResolverMustExist(): void
     {
         $this->expectException(InvalidConfigurationException::class);
