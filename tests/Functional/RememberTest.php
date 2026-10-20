@@ -20,8 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
  * of the resolution, the decision table of design.md section 7, and the expiry of a forged stored
  * value.
  *
- * Rows that also expect a Vary header stay planned; the tests without a group check the rest of
- * them. Consent rows use tarteaucitron (TAC in docs/scenarios.md).
+ * Consent rows use tarteaucitron (TAC in docs/scenarios.md).
  */
 final class RememberTest extends TestCase
 {
@@ -224,9 +223,7 @@ final class RememberTest extends TestCase
         self::assertSame(['Cookie', 'User-Agent'], self::context($request)->consultedInputs);
     }
 
-    /**
-     * VAL-08 also expects Vary: [Cookie, User-Agent], which comes with the Vary listener.
-     */
+    #[Group('VAL-08')]
     public function testAForgedCookieIsIgnoredAndExpired(): void
     {
         $this->boot(services: ['logger' => TestLogger::class]);
@@ -238,6 +235,7 @@ final class RememberTest extends TestCase
         self::assertSame('desktop detector', $response->getContent());
         self::assertSetCookie(self::scDel(), $response);
         self::assertSame(['Cookie', 'User-Agent'], self::context($request)->consultedInputs);
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
         self::assertSame([self::INVALID_STORED], $this->logger()->messages(LogLevel::DEBUG));
     }
 
@@ -376,15 +374,14 @@ final class RememberTest extends TestCase
         self::assertSame('max-age=3600, public', $response->headers->get('Cache-Control'));
     }
 
-    /**
-     * HC-03 also expects Vary: [Cookie], which comes with the Vary listener.
-     */
+    #[Group('HC-03')]
     public function testAResponseWithoutTheCookieStaysPublic(): void
     {
         $response = $this->handle(self::request('/cacheable', cookies: ['device_view' => 'mobile']));
 
         self::assertNoCookie($response);
         self::assertSame('max-age=3600, public', $response->headers->get('Cache-Control'));
+        self::assertSame(['Cookie'], $response->getVary());
     }
 
     #[Group('HC-04')]

@@ -158,6 +158,26 @@ final class DeviceViewFacadeTest extends TestCase
         $deviceView->setView('phone');
     }
 
+    #[Group('FAC-12')]
+    public function testSetViewAfterARead(): void
+    {
+        $this->boot();
+        $controllerCall = $this->service(ControllerCall::class);
+        self::assertInstanceOf(ControllerCall::class, $controllerCall);
+        $controllerCall->calls = static function (DeviceView $deviceView): array {
+            $before = $deviceView->getViewName();
+            $deviceView->setView('tablet');
+
+            return [$before, $deviceView->getViewName(), $deviceView->getSource()->value];
+        };
+
+        $response = $this->handle(self::request('/view', 'iphone'), false);
+
+        self::assertSame(['mobile', 'tablet', ViewSource::Forced->value], $controllerCall->results);
+        self::assertSame('tablet forced', $response->getContent());
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary(), 'the inputs already consulted stay');
+    }
+
     public function testSetViewTakesAConfiguredName(): void
     {
         $this->boot(['views' => ['names' => ['tablet' => 't']]]);

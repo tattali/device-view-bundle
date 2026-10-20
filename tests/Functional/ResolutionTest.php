@@ -68,14 +68,51 @@ final class ResolutionTest extends TestCase
         self::assertSame(1, $this->detector()->calls);
     }
 
+    #[Group('RES-02')]
     public function testTheDetectorDecides(): void
     {
-        self::assertSame('mobile detector', $this->handle(self::request('/view', 'iphone'))->getContent());
+        $response = $this->handle(self::request('/view', 'iphone'));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('mobile detector', $response->getContent());
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
     }
 
+    #[Group('RES-03')]
     public function testTheDefaultViewAppliesWhenTheDetectorCannotTell(): void
     {
-        self::assertSame('desktop default', $this->handle(self::request('/view', 'empty'))->getContent());
+        $response = $this->handle(self::request('/view', 'empty'));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('desktop default', $response->getContent());
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
+    }
+
+    #[Group('DET-MD-04')]
+    public function testTheConfiguredMobileDetectHeadersArePassedAndListedInVary(): void
+    {
+        $this->boot(['detector' => ['mobile_detect' => ['headers' => ['User-Agent', 'X-Device-User-Agent']]]]);
+        $request = self::request('/view');
+        $request->headers->set('X-Device-User-Agent', self::userAgent('iphone'));
+
+        $response = $this->handle($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('mobile detector', $response->getContent());
+        self::assertSame(['Cookie', 'User-Agent', 'X-Device-User-Agent'], $response->getVary());
+    }
+
+    #[Group('DET-MD-05')]
+    public function testHeadersThatAreNotConfiguredAreNotPassed(): void
+    {
+        $request = self::request('/view');
+        $request->headers->set('X-Device-User-Agent', self::userAgent('iphone'));
+
+        $response = $this->handle($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('desktop detector', $response->getContent());
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
     }
 
     public function testAForcedViewBeatsTheDetector(): void
@@ -218,13 +255,18 @@ final class ResolutionTest extends TestCase
         self::assertSame('desktop default', $this->handle(self::request('/view'))->getContent());
     }
 
+    #[Group('DET-CUS-01')]
     public function testACustomDetectorDecides(): void
     {
         $this->boot(['detector' => ['id' => 'app.header_detector']], ['app.header_detector' => HeaderDetector::class]);
         $request = self::request('/view');
         $request->headers->set('X-Test-View', 'tablet');
 
-        self::assertSame('tablet detector', $this->handle($request)->getContent());
+        $response = $this->handle($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('tablet detector', $response->getContent());
+        self::assertSame(['Cookie', 'X-Test-View'], $response->getVary());
     }
 
     private function detector(): CountingDetector

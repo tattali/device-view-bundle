@@ -21,9 +21,6 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockFileSessionStorage;
 /**
  * Remembering the view in the session (remember.storage: session), through the kernel, with the
  * framework session on the mock file storage.
- *
- * Rows that also expect a Vary header stay planned; the tests without a group check the rest of
- * them.
  */
 final class SessionTest extends TestCase
 {
@@ -45,9 +42,9 @@ final class SessionTest extends TestCase
         self::assertSame(['_device_view' => 'mobile'], $this->sessionOf($response));
     }
 
+    #[Group('SES-02')]
     public function testThePreviousSessionIsRead(): void
     {
-        // SES-02 without its Vary header, which a later change adds
         $this->bootWithSession();
         $request = self::request('/view', 'iphone', cookies: $this->previousSession(['_device_view' => 'tablet']));
 
@@ -56,18 +53,21 @@ final class SessionTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('tablet remembered', $response->getContent());
         self::assertSame(['Cookie'], $this->consultedInputs($request));
+        self::assertSame(['Cookie'], $response->getVary());
     }
 
+    #[Group('SES-03')]
     public function testASessionIsNeverStartedToRead(): void
     {
-        // SES-03 without its Vary header, which a later change adds
         $this->bootWithSession();
         $request = self::request('/view', 'iphone');
 
         $response = $this->handle($request);
 
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame('mobile detector', $response->getContent());
         self::assertSame(['Cookie', 'User-Agent'], $this->consultedInputs($request));
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
         $this->assertNoSessionStarted($response);
     }
 

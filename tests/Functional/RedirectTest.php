@@ -16,10 +16,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The device redirects to the host of each view (redirect.<view>), through the kernel.
- *
- * Rows that also expect a Vary header (RED-01, RED-18, RED-24, RED-34, REG-14) stay planned
- * until the response lists the consulted inputs; the tests without a group check the rest of
- * them.
  */
 final class RedirectTest extends TestCase
 {
@@ -43,6 +39,7 @@ final class RedirectTest extends TestCase
         unset($_SERVER['DV_MOBILE_HOST'], $_ENV['DV_MOBILE_HOST']);
     }
 
+    #[Group('RED-01')]
     public function testMobileRedirect(): void
     {
         $this->boot(['redirect' => self::M]);
@@ -51,6 +48,7 @@ final class RedirectTest extends TestCase
 
         self::assertRedirect('https://m.example.com/blog/post?page=2&device_view=mobile', 302, $response);
         self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
         self::assertNoCookie($response);
     }
 
@@ -221,6 +219,8 @@ final class RedirectTest extends TestCase
         self::assertRedirect('https://m.example.com/?device_view=mobile', 302, $this->handle(self::request('http://www.example.com/', 'iphone')));
     }
 
+    #[Group('RED-18')]
+    #[Group('REG-14')]
     public function testStatus301(): void
     {
         $this->boot(['redirect' => ['mobile' => ['enabled' => true, 'host' => 'https://m.example.com', 'status' => 301]]]);
@@ -229,6 +229,7 @@ final class RedirectTest extends TestCase
 
         self::assertRedirect('https://m.example.com/?device_view=mobile', 301, $response);
         self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
     }
 
     #[Group('RED-19')]
@@ -296,6 +297,7 @@ final class RedirectTest extends TestCase
         self::assertSame('must-revalidate, no-cache, private', $response->headers->get('Cache-Control'));
     }
 
+    #[Group('RED-24')]
     public function testARememberedViewDecidesTheRedirect(): void
     {
         $this->boot(['redirect' => self::D]);
@@ -304,6 +306,7 @@ final class RedirectTest extends TestCase
 
         self::assertRedirect('https://www.example.com/?device_view=desktop', 302, $response);
         self::assertNoCookie($response);
+        self::assertSame(['Cookie'], $response->getVary());
     }
 
     #[Group('RED-25')]
@@ -424,12 +427,16 @@ final class RedirectTest extends TestCase
         self::assertNull($context->resolved);
     }
 
+    #[Group('RED-34')]
     public function testEnabledRedirectsResolveTheView(): void
     {
         $this->boot(['redirect' => self::M]);
         $request = self::request('https://m.example.com/', 'iphone');
 
-        self::assertPage('home page', $this->handle($request));
+        $response = $this->handle($request);
+
+        self::assertPage('home page', $response);
+        self::assertSame(['Cookie', 'User-Agent'], $response->getVary());
         $context = $request->attributes->get(DeviceViewContext::ATTRIBUTE);
         self::assertInstanceOf(DeviceViewContext::class, $context);
         self::assertSame(['Cookie', 'User-Agent'], $context->consultedInputs);

@@ -13,8 +13,6 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * remember.storage none, and a custom storage service, through the kernel.
- *
- * STO-02 also expects a Vary header and stays planned; the test without a group checks the rest.
  */
 final class StorageTest extends TestCase
 {
@@ -45,9 +43,9 @@ final class StorageTest extends TestCase
         self::assertNoCookie($response);
     }
 
+    #[Group('STO-02')]
     public function testStorageNoneNeverReads(): void
     {
-        // STO-02 without its Vary header, which a later change adds
         $this->boot(['remember' => ['storage' => 'none']]);
         $request = self::request('/view', cookies: ['device_view' => 'mobile']);
 
@@ -58,6 +56,7 @@ final class StorageTest extends TestCase
         $context = $request->attributes->get(DeviceViewContext::ATTRIBUTE);
         \assert($context instanceof DeviceViewContext);
         self::assertSame(['User-Agent'], $context->consultedInputs, 'no cookie is consulted');
+        self::assertSame(['User-Agent'], $response->getVary());
     }
 
     #[Group('STO-03')]
