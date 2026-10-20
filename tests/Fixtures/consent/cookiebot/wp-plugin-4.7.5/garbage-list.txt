@@ -1,0 +1,5 @@
+# source: Cookie_Consent::scan_cookie() in src/lib/Cookie_Consent.php, lines 48-103, of the Cookiebot WordPress plugin 4.7.5 (https://downloads.wordpress.org/plugin/cookiebot.4.7.5.zip, sha256 008a9f7f87d3eebcc2857b8078b1b3c0de6e34f0e13be6da7ac709cc9d480e40), the vendor's own PHP reader of the CookieConsent cookie: "0" = no cookie accepted, "-1" = not in a region that requires consent, anything else a JavaScript-style object normalised to JSON, whose preferences, statistics and marketing members are read as booleans
+# date: 2026-10-20
+# garbage: not written by Cookiebot
+# hasConsent: null
+Cookie: CookieConsent=[true]

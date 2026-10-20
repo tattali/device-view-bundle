@@ -486,16 +486,16 @@ is false or null.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-CB-01 | `-1`: no consent needed | `cookiebot` | `Cookie: CookieConsent=-1` | `hasConsent` true | planned |
-| CON-CB-02 | Granted | `cookiebot` | `Cookie: CookieConsent={stamp:'k7vR4UXCrdIN0JRQ6ZJhvUh1yz6UvC4gOGBQafPnz6ZLKNQiQJn1Ow==',necessary:true,preferences:true,statistics:false,marketing:false,method:'explicit',ver:1,utc:1792483200000,region:'fr'}` | `hasConsent` true | planned |
-| CON-CB-03 | Denied | `cookiebot` | same value with `preferences:false` | `hasConsent` false | planned |
-| CON-CB-04 | Key absent | `cookiebot` | `Cookie: CookieConsent={stamp:'x',necessary:true}` | `hasConsent` null | planned |
-| CON-CB-05 | No cookie | `cookiebot` | no cookie | `hasConsent` null | planned |
-| CON-CB-06 | Garbage | `cookiebot` | `Cookie: CookieConsent={preferences:` | `hasConsent` null | planned |
-| CON-CB-07 | Other scalar | `cookiebot` | `Cookie: CookieConsent=0` | `hasConsent` null | planned |
-| CON-CB-08 | Array cookie | `cookiebot` | cookie `CookieConsent` = `['preferences' => 'true']` | `hasConsent` null, no error | planned |
-| CON-CB-09 | Custom key | `consent: { provider: cookiebot, key: statistics }` | the CON-CB-02 value | `hasConsent` false | planned |
-| CON-CB-10 | Custom cookie name | `consent: { provider: cookiebot, cookie: CookieConsentSite }` | `Cookie: CookieConsentSite=-1` | `hasConsent` true | planned |
+| CON-CB-01 | `-1`: no consent needed | `cookiebot` | `Cookie: CookieConsent=-1` | `hasConsent` true | active |
+| CON-CB-02 | Granted | `cookiebot` | `Cookie: CookieConsent={stamp:'k7vR4UXCrdIN0JRQ6ZJhvUh1yz6UvC4gOGBQafPnz6ZLKNQiQJn1Ow==',necessary:true,preferences:true,statistics:false,marketing:false,method:'explicit',ver:1,utc:1792483200000,region:'fr'}` | `hasConsent` true | active |
+| CON-CB-03 | Denied | `cookiebot` | same value with `preferences:false` | `hasConsent` false | active |
+| CON-CB-04 | Key absent | `cookiebot` | `Cookie: CookieConsent={stamp:'x',necessary:true}` | `hasConsent` null | active |
+| CON-CB-05 | No cookie | `cookiebot` | no cookie | `hasConsent` null | active |
+| CON-CB-06 | Garbage | `cookiebot` | `Cookie: CookieConsent={preferences:` | `hasConsent` null | active |
+| CON-CB-07 | `0`: no cookie accepted | `cookiebot` | `Cookie: CookieConsent=0` | `hasConsent` false | active |
+| CON-CB-08 | Array cookie | `cookiebot` | cookie `CookieConsent` = `['preferences' => 'true']` | `hasConsent` null, no error | active |
+| CON-CB-09 | Custom key | `consent: { provider: cookiebot, key: statistics }` | the CON-CB-02 value | `hasConsent` false | active |
+| CON-CB-10 | Custom cookie name | `consent: { provider: cookiebot, cookie: CookieConsentSite }` | `Cookie: CookieConsentSite=-1` | `hasConsent` true | active |
 
 ### OneTrust (CON-OT): cookie `OptanonConsent`, key `C0003`
 
