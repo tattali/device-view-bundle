@@ -1,0 +1,5 @@
+# source: Axeptio_Cookies::set() of the Axeptio WordPress plugin 2.6.5 (github.com/axeptio/wordpress-plugin 07960f55, includes/classes/cookies/class-axeptio-cookies.php:111 get_cookie_data() and class-abstract-cookie.php set(), i.e. setcookie()), run locally under php -S on PHP 8.4 with wp_json_encode() stubbed as json_encode(), user token k1x8b3 and the preferences below; the Cookie line is the name and value of the Set-Cookie it sent
+# date: 2026-10-20
+# preferences: {"google_analytics":true}
+# hasConsent: null
+Cookie: axeptio_cookies=%7B%22%24%24token%22%3A%22k1x8b3%22%2C%22%24%24date%22%3A%222026-10-20T19%3A12%3A55%2B00%3A00%22%2C%22%24%24cookiesVersion%22%3Atrue%2C%22%24%24completed%22%3Atrue%2C%22google_analytics%22%3Atrue%7D

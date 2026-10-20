@@ -520,16 +520,16 @@ the value PHP gives after decoding the cookie.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| CON-AX-01 | Granted | `axeptio` | `Cookie: axeptio_cookies={"$$token":"k1x8b3","$$date":"2026-10-20T10:00:00.000Z","$$cookiesVersion":{"name":"site-en","identifier":"64f0"},"device_view":true,"$$completed":true}` | `hasConsent` true | planned |
-| CON-AX-02 | Denied | `axeptio` | same value with `"device_view":false` | `hasConsent` false | planned |
-| CON-AX-03 | Not completed | `axeptio` | `Cookie: axeptio_cookies={"device_view":true,"$$completed":false}` | `hasConsent` null | planned |
-| CON-AX-04 | Vendor absent | `axeptio` | `Cookie: axeptio_cookies={"$$completed":true,"analytics":true}` | `hasConsent` null | planned |
-| CON-AX-05 | No cookie | `axeptio` | no cookie | `hasConsent` null | planned |
-| CON-AX-06 | Value still URL-encoded | `axeptio` | `Cookie: axeptio_cookies=%7B%22%24%24completed%22%3Atrue%2C%22device_view%22%3Atrue%7D` | `hasConsent` true | planned |
-| CON-AX-07 | Not a boolean | `axeptio` | `Cookie: axeptio_cookies={"$$completed":true,"device_view":1}` | `hasConsent` null | planned |
-| CON-AX-08 | Garbage | `axeptio` | `Cookie: axeptio_cookies=[[[` | `hasConsent` null | planned |
-| CON-AX-09 | Array cookie | `axeptio` | cookie `axeptio_cookies` = `['device_view' => 'true']` | `hasConsent` null, no error | planned |
-| CON-AX-10 | Custom cookie name and key | `consent: { provider: axeptio, cookie: axeptio_site, key: views }` | `Cookie: axeptio_site={"$$completed":true,"views":true}` | `hasConsent` true | planned |
+| CON-AX-01 | Granted | `axeptio` | `Cookie: axeptio_cookies={"$$token":"k1x8b3","$$date":"2026-10-20T10:00:00.000Z","$$cookiesVersion":{"name":"site-en","identifier":"64f0"},"device_view":true,"$$completed":true}` | `hasConsent` true | active |
+| CON-AX-02 | Denied | `axeptio` | same value with `"device_view":false` | `hasConsent` false | active |
+| CON-AX-03 | Not completed | `axeptio` | `Cookie: axeptio_cookies={"device_view":true,"$$completed":false}` | `hasConsent` null | active |
+| CON-AX-04 | Vendor absent | `axeptio` | `Cookie: axeptio_cookies={"$$completed":true,"analytics":true}` | `hasConsent` null | active |
+| CON-AX-05 | No cookie | `axeptio` | no cookie | `hasConsent` null | active |
+| CON-AX-06 | Value still URL-encoded | `axeptio` | `Cookie: axeptio_cookies=%7B%22%24%24completed%22%3Atrue%2C%22device_view%22%3Atrue%7D` | `hasConsent` true | active |
+| CON-AX-07 | Not a boolean | `axeptio` | `Cookie: axeptio_cookies={"$$completed":true,"device_view":1}` | `hasConsent` null | active |
+| CON-AX-08 | Garbage | `axeptio` | `Cookie: axeptio_cookies=[[[` | `hasConsent` null | active |
+| CON-AX-09 | Array cookie | `axeptio` | cookie `axeptio_cookies` = `['device_view' => 'true']` | `hasConsent` null, no error | active |
+| CON-AX-10 | Custom cookie name and key | `consent: { provider: axeptio, cookie: axeptio_site, key: views }` | `Cookie: axeptio_site={"$$completed":true,"views":true}` | `hasConsent` true | active |
 
 ### Didomi (CON-DID): cookie `didomi_token`, key `device_view`
 
