@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Context;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\ViewResolvedEvent;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Resolver\ResolvedView;
 use DeviceViewBundle\Routing\RouteDefaults;
@@ -218,14 +219,74 @@ final class DeviceViewContextTest extends TestCase
         self::assertTrue($context->forgedStoredValue);
     }
 
-    public function testMarkingTheViewResolvedEventDispatchedRecordsIt(): void
+    public function testBeginningTheViewResolvedDispatchRecordsIt(): void
     {
         $context = new DeviceViewContext();
         self::assertFalse($context->viewResolvedDispatched);
 
-        $context->markViewResolvedDispatched();
+        $context->beginViewResolvedDispatch(new ViewResolvedEvent(DeviceType::Mobile, ViewSource::Detector, Request::create('/')), ['User-Agent']);
 
         self::assertTrue($context->viewResolvedDispatched);
+        self::assertFalse($context->forcedDuringViewResolved);
+    }
+
+    public function testAReadDuringTheViewResolvedDispatchGetsTheViewTheEventHoldsNow(): void
+    {
+        $context = new DeviceViewContext();
+        $request = Request::create('/');
+        $resolver = new RecordingResolver([]);
+        $event = new ViewResolvedEvent(DeviceType::Mobile, ViewSource::Detector, $request);
+        $context->beginViewResolvedDispatch($event, ['Cookie', 'User-Agent']);
+
+        $event->setView(DeviceType::Tablet);
+        $read = $context->resolve($resolver, $request);
+
+        self::assertSame(DeviceType::Tablet, $read->view);
+        self::assertSame(ViewSource::Detector, $read->source);
+        self::assertSame(['Cookie', 'User-Agent'], $read->consultedInputs);
+        self::assertSame([], $resolver->calls, 'the resolution in progress is not run again');
+        self::assertNull($context->resolved, 'the result of the resolution in progress is not stored yet');
+    }
+
+    public function testAfterTheViewResolvedDispatchAReadResolves(): void
+    {
+        $context = new DeviceViewContext();
+        $request = Request::create('/');
+        $resolver = new RecordingResolver([new ResolvedView(DeviceType::Desktop, ViewSource::Default, [])]);
+        $context->beginViewResolvedDispatch(new ViewResolvedEvent(DeviceType::Mobile, ViewSource::Detector, $request), []);
+
+        $context->endViewResolvedDispatch();
+
+        self::assertSame(DeviceType::Desktop, $context->resolve($resolver, $request)->view);
+        self::assertTrue($context->viewResolvedDispatched, 'the event stays dispatched');
+    }
+
+    public function testForcingDuringTheViewResolvedDispatchEndsTheProvisionalView(): void
+    {
+        $context = new DeviceViewContext();
+        $request = Request::create('/');
+        $resolver = new RecordingResolver([new ResolvedView(DeviceType::Desktop, ViewSource::Forced, [])]);
+        $context->beginViewResolvedDispatch(new ViewResolvedEvent(DeviceType::Mobile, ViewSource::Detector, $request), []);
+
+        $context->force(DeviceType::Desktop);
+
+        self::assertTrue($context->forcedDuringViewResolved);
+        $read = $context->resolve($resolver, $request);
+        self::assertSame(DeviceType::Desktop, $read->view);
+        self::assertSame(ViewSource::Forced, $read->source);
+        self::assertCount(1, $resolver->calls);
+    }
+
+    public function testForcingOutsideTheViewResolvedDispatchIsNotForcingDuringIt(): void
+    {
+        $context = new DeviceViewContext();
+        $context->force(DeviceType::Desktop);
+        $context->beginViewResolvedDispatch(new ViewResolvedEvent(DeviceType::Desktop, ViewSource::Forced, Request::create('/')), []);
+        $context->endViewResolvedDispatch();
+
+        $context->force(DeviceType::Tablet);
+
+        self::assertFalse($context->forcedDuringViewResolved);
     }
 
     public function testMarkingTheResponseBuiltRecordsIt(): void

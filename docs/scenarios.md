@@ -691,6 +691,8 @@ parameter is ignored), redirects, remembers or expires a stored value.
 | EVT-RES-07 | Event name | a listener on `ViewResolvedEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::VIEW_RESOLVED`) | `GET /view` | the listener is called | active |
 | EVT-RES-08 | A view forced after the event is not changed again | a counting listener calling `setView(DeviceType::Desktop)` | in a controller, `UA=iphone`: read, then `setView('tablet')`, then read | `desktop`, then `tablet` with source Forced; 200 `"tablet forced"`; 1 call | active |
 | EVT-RES-09 | A view forced before the first read is dispatched | a recording listener | `GET /set-view/tablet`, `UA=iphone` | `getView()` Tablet, `getSource()` Forced; 200 `"tablet forced"` | active |
+| EVT-RES-10 | A listener reading the view does not resolve again | `detector: { id: app.counting_detector }`, a listener reading the view name through the facade, then calling `setView(DeviceType::Tablet)` and reading the view name and source | `GET /view`, `UA=iphone` | the listener reads `mobile`, then `tablet detector`; 200 `"tablet detector"`; the detector is called once; 1 call | active |
+| EVT-RES-11 | A view forced in a listener wins | `remember: { detected_view: true }`, a listener calling `DeviceView::setView('desktop', true)`, reading the view name and source, then calling `setView(DeviceType::Tablet)` on the event | `GET /view`, `UA=iphone` | the listener reads `desktop forced`; 200 `"desktop forced"`; `Set-Cookie: device_view=desktop`; 1 call |  active |
 
 ### BeforeRedirectEvent (EVT-RED)
 
@@ -960,6 +962,14 @@ the area; if the owner disagrees, the rows change before they become active.
   source, a forced view included (EVT-RES-09). A view forced with `DeviceView::setView()` after
   that resolves again without a new event, so the forced view stands (EVT-RES-08).
 - The view a `ViewResolvedEvent` listener sets is final: `tablet_as_mobile` does not map it again.
+- A `ViewResolvedEvent` listener that reads the view, through the facade or any other service,
+  gets the view the event holds at that moment and its source; the resolution is not run again
+  (EVT-RES-10).
+- `DeviceView::setView()` called from a `ViewResolvedEvent` listener wins over the view of the
+  event: the request uses the forced view with source `forced`, and remembers it when asked
+  (EVT-RES-11).
+- When a `ViewResolvedEvent` listener throws, the event still counts as dispatched: a later read
+  in the same request, such as an error page, resolves the view without the event.
 - The built-in resolver dispatches `ViewResolvedEvent`; a resolver set with `services.resolver`
   replaces the whole resolution, the event included.
 - Removing a forged cookie counts as writing the remember cookie for `private_when_remembering`

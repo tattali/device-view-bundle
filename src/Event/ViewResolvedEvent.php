@@ -14,7 +14,9 @@ use Symfony\Contracts\EventDispatcher\Event;
  *
  * A listener may set another view: the DeviceView facade, the redirects and the remember step
  * then use it, tablet_as_mobile does not map it again, and the source stays the one that decided.
- * A view forced with DeviceView::setView() after this event is not dispatched again.
+ * A listener reading the view gets the view this event holds at that moment. A view forced with
+ * DeviceView::setView(), from a listener or later, wins and is not dispatched again. When a
+ * listener throws, the event is not dispatched again for the request.
  */
 final class ViewResolvedEvent extends Event
 {

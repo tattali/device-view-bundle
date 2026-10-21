@@ -55,12 +55,29 @@ final readonly class ViewResolver implements ViewResolverInterface
             $view = DeviceType::Mobile;
         }
 
-        // marked first: a listener reading the view resolves again without a second event
+        $consulted = array_values(array_unique($consulted));
         if (null !== $this->dispatcher && !$context->viewResolvedDispatched) {
-            $context->markViewResolvedDispatched();
-            $view = $this->dispatcher->dispatch(new ViewResolvedEvent($view, $source, $request))->getView();
+            $event = new ViewResolvedEvent($view, $source, $request);
+            // a listener reading the view gets the view of the event, without resolving again
+            $context->beginViewResolvedDispatch($event, $consulted);
+            try {
+                $this->dispatcher->dispatch($event);
+            } finally {
+                $context->endViewResolvedDispatch();
+            }
+
+            if ($context->forcedDuringViewResolved) {
+                // DeviceView::setView() in a listener: the forced view wins, without a new event. It
+                // runs only the steps up to the forced one, which this resolution already ran, so
+                // the inputs read before the event are all the inputs.
+                $forced = $this->resolve($request, $context);
+
+                return new ResolvedView($forced->view, $forced->source, $consulted);
+            }
+
+            $view = $event->getView();
         }
 
-        return new ResolvedView($view, $source, array_values(array_unique($consulted)));
+        return new ResolvedView($view, $source, $consulted);
     }
 }

@@ -7,6 +7,7 @@ namespace DeviceViewBundle\Tests\Functional;
 use DeviceViewBundle\DeviceView;
 use DeviceViewBundle\Event\ViewResolvedEvent;
 use DeviceViewBundle\Tests\App\ControllerCall;
+use DeviceViewBundle\Tests\App\Detector\CountingDetector;
 use DeviceViewBundle\Tests\App\Event\ViewResolvedListener;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewSource;
@@ -163,6 +164,58 @@ final class ViewResolvedEventTest extends TestCase
         self::assertCount(1, $events);
         self::assertSame(DeviceType::Tablet, $events[0]['view']);
         self::assertSame(ViewSource::Forced, $events[0]['source']);
+    }
+
+    #[Group('EVT-RES-10')]
+    public function testAListenerReadingTheViewDoesNotResolveAgain(): void
+    {
+        $this->boot(['detector' => ['id' => 'app.counting_detector']], ['app.counting_detector' => CountingDetector::class]);
+        $deviceView = $this->deviceView();
+        /** @var \ArrayObject<int, string> $reads */
+        $reads = new \ArrayObject();
+        $this->listener()->onEvent = static function (ViewResolvedEvent $event) use ($deviceView, $reads): void {
+            $reads->append($deviceView->getViewName());
+            $event->setView(DeviceType::Tablet);
+            $reads->append($deviceView->getViewName().' '.$deviceView->getSource()->value);
+        };
+
+        $response = $this->handle(self::request('/view', 'iphone'));
+
+        self::assertSame(['mobile', 'tablet detector'], $reads->getArrayCopy());
+        self::assertSame('tablet detector', $response->getContent());
+        $detector = $this->service('app.counting_detector');
+        self::assertInstanceOf(CountingDetector::class, $detector);
+        self::assertSame(1, $detector->calls);
+        self::assertCount(1, $this->listener()->events);
+    }
+
+    #[Group('EVT-RES-11')]
+    public function testAViewForcedInAListenerWins(): void
+    {
+        $this->boot(['remember' => ['detected_view' => true]]);
+        $deviceView = $this->deviceView();
+        /** @var \ArrayObject<int, string> $reads */
+        $reads = new \ArrayObject();
+        $this->listener()->onEvent = static function (ViewResolvedEvent $event) use ($deviceView, $reads): void {
+            $deviceView->setView('desktop', true);
+            $reads->append($deviceView->getViewName().' '.$deviceView->getSource()->value);
+            $event->setView(DeviceType::Tablet);
+        };
+
+        $response = $this->handle(self::request('/view', 'iphone'));
+
+        self::assertSame(['desktop forced'], $reads->getArrayCopy());
+        self::assertSame('desktop forced', $response->getContent());
+        self::assertSetCookie(self::sc('desktop'), $response);
+        self::assertCount(1, $this->listener()->events);
+    }
+
+    private function deviceView(): DeviceView
+    {
+        $deviceView = $this->service('test.device_view');
+        self::assertInstanceOf(DeviceView::class, $deviceView);
+
+        return $deviceView;
     }
 
     private function listener(): ViewResolvedListener
