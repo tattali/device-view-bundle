@@ -16,7 +16,6 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Filesystem\Filesystem;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -60,11 +59,6 @@ final class Kernel extends BaseKernel
         'test.device_view.consent_checker' => 'device_view.consent_checker',
         'test.consent_checker_interface' => ConsentCheckerInterface::class,
     ];
-
-    /**
-     * Every Request::HEADER_* bit.
-     */
-    private const int TRUSTED_HEADERS = Request::HEADER_FORWARDED | Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_PORT | Request::HEADER_X_FORWARDED_PREFIX;
 
     private static ?string $runDir = null;
 
@@ -116,7 +110,7 @@ final class Kernel extends BaseKernel
                 'server' => $_SERVER['SHELL_VERBOSITY'] ?? null,
                 'getenv' => getenv('SHELL_VERBOSITY'),
             ];
-            $this->trustedProxiesBeforeBoot = ['proxies' => Request::getTrustedProxies(), 'headers' => Request::getTrustedHeaderSet()];
+            $this->trustedProxiesBeforeBoot = TrustedProxies::save();
         }
 
         parent::boot();
@@ -147,7 +141,7 @@ final class Kernel extends BaseKernel
         }
 
         if (null !== $before = $this->trustedProxiesBeforeBoot) {
-            Request::setTrustedProxies($before['proxies'], $before['headers'] & self::TRUSTED_HEADERS);
+            TrustedProxies::restore($before);
             $this->trustedProxiesBeforeBoot = null;
         }
     }
