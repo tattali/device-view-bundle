@@ -648,6 +648,7 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 | TH-03 | `trusted_proxies_only: false` | `trusted_header: { name: X-Device-View, trusted_proxies_only: false }` | as TH-02 | 200 `"tablet trusted_header"` | active |
 | TH-04 | Value is trimmed and lower-cased | `TH` | `GET /view`, `X-Device-View: " Tablet "` | 200 `"tablet trusted_header"` | active |
 | TH-05 | Not configured: never read | — | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | active |
+| TH-06 | Absent from a trusted proxy: still listed in `Vary` | `TH` | `GET /view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, X-Device-View, User-Agent]` | active |
 
 ## 16. Skipped requests (SKIP), design.md sections 4 and 5
 
@@ -1008,9 +1009,9 @@ the area; if the owner disagrees, the rows change before they become active.
 - The trusted header is read only when `trusted_header.name` is set and, with
   `trusted_proxies_only`, only from a trusted proxy. The header of an untrusted client is not
   read, so it is not listed in `Vary` (TH-02). Once read, the header counts as consulted even when
-  it is absent or invalid, and is listed in `Vary` under its configured name (VAL-13). An invalid
-  value is logged at debug level and nothing is expired: the request holds it, not a storage.
-  A header name is an RFC 9110 token (CFG-44).
+  it is absent or invalid, and is listed in `Vary` under its configured name (TH-06, VAL-13). An
+  invalid value is logged at debug level and nothing is expired: the request holds it, not a
+  storage. A header name is an RFC 9110 token (CFG-44).
 - Cancelling a switch redirect keeps the switched view and its remember (EVT-RED-05).
 - Matomo with `client_hints: true` passes and varies on `Sec-CH-UA`, `Sec-CH-UA-Arch`,
   `Sec-CH-UA-Bitness`, `Sec-CH-UA-Full-Version`, `Sec-CH-UA-Full-Version-List`,

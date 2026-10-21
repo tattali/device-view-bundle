@@ -56,6 +56,7 @@ final class TrustedHeaderTest extends TestCase
         self::assertSame(['Cookie', 'X-Device-View'], $response->getVary());
     }
 
+    #[Group('TH-06')]
     public function testAnAbsentHeaderIsListedInVary(): void
     {
         $this->boot(self::TH, framework: self::TRUSTED_PROXY);
