@@ -7,6 +7,7 @@ namespace DeviceViewBundle\Tests\Resolver\Step;
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Resolver\Step\TrustedHeaderStep;
 use DeviceViewBundle\Tests\App\TestLogger;
+use DeviceViewBundle\Tests\App\TrustedProxies;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
 use DeviceViewBundle\View\ViewSource;
@@ -21,16 +22,27 @@ final class TrustedHeaderStepTest extends TestCase
 
     private const string UNTRUSTED = '203.0.113.9';
 
+    /**
+     * The trusted proxies and headers of Request before the test.
+     *
+     * @var array{proxies: array<string>, headers: int}|null
+     */
+    private ?array $trustedProxies = null;
+
     #[\Override]
     protected function setUp(): void
     {
+        $this->trustedProxies = TrustedProxies::save();
         Request::setTrustedProxies(['127.0.0.1'], Request::HEADER_X_FORWARDED_FOR);
     }
 
     #[\Override]
     protected function tearDown(): void
     {
-        Request::setTrustedProxies([], Request::HEADER_X_FORWARDED_FOR);
+        if (null !== $this->trustedProxies) {
+            TrustedProxies::restore($this->trustedProxies);
+            $this->trustedProxies = null;
+        }
     }
 
     public function testItsSourceIsTheTrustedHeader(): void
