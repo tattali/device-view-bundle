@@ -209,6 +209,12 @@ final class Kernel extends BaseKernel
             ->public()
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => -1000])
         ;
+        $services
+            ->set(ResponseRecorder::class)
+            ->public()
+            ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => -1000])
+            ->tag('kernel.event_listener', ['event' => KernelEvents::RESPONSE, 'method' => 'onKernelResponse', 'priority' => -1000])
+        ;
         foreach ($this->services as $id => $class) {
             $services->set($id, $class)->public();
         }

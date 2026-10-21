@@ -135,7 +135,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | Route | Path | Behaviour |
 |---|---|---|
 | `home` | `/` | Body `home page`. Never reads the view. |
-| `view` | `/view` | Body `<view name> <source>`, from `DeviceView::getViewName()` and `DeviceView::getSource()`, e.g. `mobile detector`. |
+| `view` | `/view` | Body `<view name> <source>`, from `DeviceView::getViewName()` and `DeviceView::getSource()`, e.g. `mobile detector`. When the test sets the request attribute `_test_vary`, the controller sets that value as the response's `Vary` (VARY-06, VARY-07). |
 | `blog` | `/blog/{slug}` | Same as `view`. |
 | `form` | `/form` | Same as `view`; accepts GET, HEAD and POST. |
 | `cacheable` | `/cacheable` | Same as `view`, and the response is `setPublic()` then `setMaxAge(3600)`. |
@@ -178,7 +178,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VAL-05 | Empty switch value is ignored | — | `GET /view?device_view=` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
 | VAL-06 | Switch token must be a configured name | `views: { names: { desktop: d } }` | `GET /view?device_view=desktop` | 200 `"d detector"`, no `Location`, no `Set-Cookie` | active |
 | VAL-07 | Stored token is trimmed and lower-cased | — | `GET /view`, `Cookie: device_view=MOBILE` | 200 `"mobile remembered"`, no `Set-Cookie` | active |
-| VAL-08 | Forged cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL`, `Vary: [Cookie, User-Agent]`; debug log `Ignored an invalid device view from the remember storage.` | planned |
+| VAL-08 | Forged cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL`, `Vary: [Cookie, User-Agent]`; debug log `Ignored an invalid device view from the remember storage.` | active |
 | VAL-09 | Array cookie is ignored, not expired | — | `GET /view`, cookie `device_view` = `['a' => 'mobile']` | 200 `"desktop detector"`, no `Set-Cookie`, no error; debug log `Ignored an invalid device view from the remember storage.` | active |
 | VAL-10 | Empty cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL` | active |
 | VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | active |
@@ -191,8 +191,8 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | RES-01 | Resolution is lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary`, no `Set-Cookie`; the detector is not called; `ViewResolvedEvent` is not dispatched | planned |
-| RES-02 | Detector decides | — | `GET /view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | planned |
-| RES-03 | `default_view` when the detector cannot tell | — | `GET /view`, `UA=empty` | 200 `"desktop default"`, `Vary: [Cookie, User-Agent]` | planned |
+| RES-02 | Detector decides | — | `GET /view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | active |
+| RES-03 | `default_view` when the detector cannot tell | — | `GET /view`, `UA=empty` | 200 `"desktop default"`, `Vary: [Cookie, User-Agent]` | active |
 | RES-04 | Forced view beats every source | `TH` | `GET /set-view/tablet`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=iphone` | 200 `"tablet forced"`, no `Set-Cookie`, no `Vary` (nothing was consulted) | planned |
 | RES-05 | Switch beats remembered | `switch: { target: none }` | `GET /view?device_view=tablet`, `Cookie: device_view=mobile`, `UA=iphone` | 200 `"tablet switch"`, `Set-Cookie: SC(tablet)`, no `Vary` | active |
 | RES-06 | Remembered beats trusted header and detector | `TH` | `GET /view`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=desktop_chrome` | 200 `"mobile remembered"`, `Vary: [Cookie]` | planned |
@@ -234,8 +234,8 @@ mobiledetect/mobiledetectlib 4, which the PHP 7 lines cannot install (design.md 
 | DET-MD-01 | Every user agent fixture | — | `GET /view` once per entry of `tests/Fixtures/user-agents.php`, with its user agent | body `"<expected.mobile_detect> detector"`, or `"desktop default"` when it is null | active |
 | DET-MD-02 | Reads the Request, never `$_SERVER` | — | `$_SERVER['HTTP_USER_AGENT']` = the `iphone` user agent; `GET /view`, `UA=desktop_chrome` | 200 `"desktop detector"` | active |
 | DET-MD-03 | A new MobileDetect per call | — | one kernel: `GET /view` `UA=iphone`, then `GET /view` `UA=desktop_chrome`, then `UA=ipad_legacy` | `"mobile detector"`, `"desktop detector"`, `"tablet detector"` | active |
-| DET-MD-04 | Configured headers are passed and listed in `Vary` | `detector: { mobile_detect: { headers: [User-Agent, X-Device-User-Agent] } }` | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent, X-Device-User-Agent]` | planned |
-| DET-MD-05 | Headers not configured are not passed | — | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"desktop detector"`, `Vary: [Cookie, User-Agent]` | planned |
+| DET-MD-04 | Configured headers are passed and listed in `Vary` | `detector: { mobile_detect: { headers: [User-Agent, X-Device-User-Agent] } }` | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent, X-Device-User-Agent]` | active |
+| DET-MD-05 | Headers not configured are not passed | — | `GET /view`, `UA=desktop_chrome`, `X-Device-User-Agent:` the `iphone` user agent | 200 `"desktop detector"`, `Vary: [Cookie, User-Agent]` | active |
 | DET-MD-06 | PSR-16 cache | `detector: { mobile_detect: { cache: app.detector_cache } }` (a `Psr16Cache` over an `ArrayAdapter`) | `GET /view` `UA=iphone`, twice | `"mobile detector"` both times; the cache holds at least one item after the first request | planned (6.x+) |
 
 ### Matomo (DET-MAT)
@@ -280,7 +280,7 @@ mobiledetect/mobiledetectlib 4, which the PHP 7 lines cannot install (design.md 
 |---|---|---|---|---|---|
 | DET-STA-01 | Static answer | `detector: { id: static, static: { view: tablet } }` | `GET /view`, `UA=iphone` | 200 `"tablet detector"`, `Vary: [Cookie]` | planned |
 | DET-STA-02 | Static default is desktop | `detector: { id: static }` | `GET /view`, `UA=iphone` | 200 `"desktop detector"` | planned |
-| DET-CUS-01 | Custom detector service | `detector: { id: app.header_detector }` (a test detector reading `X-Test-View`, `varyHeaders()` = `[X-Test-View]`) | `GET /view`, `X-Test-View: tablet` | 200 `"tablet detector"`, `Vary: [Cookie, X-Test-View]` | planned |
+| DET-CUS-01 | Custom detector service | `detector: { id: app.header_detector }` (a test detector reading `X-Test-View`, `varyHeaders()` = `[X-Test-View]`) | `GET /view`, `X-Test-View: tablet` | 200 `"tablet detector"`, `Vary: [Cookie, X-Test-View]` | active |
 | DET-CUS-02 | Custom detector answering null | `detector: { id: app.header_detector }` | `GET /view` | 200 `"desktop default"` | active |
 | DET-CUS-03 | The interface alias follows the configuration | `detector: { id: app.header_detector }` | container | `DeviceDetectorInterface` and `device_view.detector` resolve to `app.header_detector` | active |
 | DET-AUTO-01 | Auto prefers Matomo | `detector: { id: auto }`, both libraries installed | container and `GET /view` `UA=googlebot_smartphone` | the detector is the matomo one; 200 `"desktop detector"` | planned |
@@ -387,8 +387,8 @@ created before.
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | SES-01 | Switch writes the session | `remember: { storage: session }` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `device_view` cookie; the session holds `_device_view = mobile` | active |
-| SES-02 | Reads a previous session | `remember: { storage: session }` | `GET /view`, previous session holding `_device_view = tablet`, `UA=iphone` | 200 `"tablet remembered"`, `Vary: [Cookie]` | planned |
-| SES-03 | Never starts a session to read | `remember: { storage: session }` | `GET /view`, no session cookie, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]`; the session is not started; no session cookie | planned |
+| SES-02 | Reads a previous session | `remember: { storage: session }` | `GET /view`, previous session holding `_device_view = tablet`, `UA=iphone` | 200 `"tablet remembered"`, `Vary: [Cookie]` | active |
+| SES-03 | Never starts a session to read | `remember: { storage: session }` | `GET /view`, no session cookie, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]`; the session is not started; no session cookie | active |
 | SES-04 | Lifetimes are ignored | `remember: { storage: session }`, `TAC` | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | no `device_view` cookie; the session holds `_device_view = mobile`; the session cookie is the framework's, unchanged | active |
 | SES-05 | Custom session key | `remember: { storage: session, session: { key: dv } }` | `GET /view?device_view=mobile` | the session holds `dv = mobile` and no `_device_view` | active |
 | SES-06 | Detected view written to the session | `remember: { storage: session, detected_view: true }` | `GET /view`, `UA=iphone` | 200; the session holds `_device_view = mobile` | active |
@@ -400,7 +400,7 @@ created before.
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
 | STO-01 | `storage: none` never writes | `remember: { storage: none }` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `Set-Cookie`, no session | active |
-| STO-02 | `storage: none` never reads | `remember: { storage: none }` | `GET /view`, `Cookie: device_view=mobile`, `UA=desktop_chrome` | 200 `"desktop detector"`, `Vary: [User-Agent]` | planned |
+| STO-02 | `storage: none` never reads | `remember: { storage: none }` | `GET /view`, `Cookie: device_view=mobile`, `UA=desktop_chrome` | 200 `"desktop detector"`, `Vary: [User-Agent]` | active |
 | STO-03 | `storage: none` never expires a forged cookie | `remember: { storage: none }` | `GET /view`, `Cookie: device_view=phone` | 200 `"desktop detector"`, no `Set-Cookie` | active |
 | STO-04 | Custom storage service | `remember: { storage: app.array_storage }` (a test `ViewStorageInterface` keeping views in memory) | `GET /view?device_view=tablet`, then `GET /view` | 302 without `Set-Cookie`, then 200 `"tablet remembered"` | active |
 | STO-05 | The interface alias follows the configuration | `remember: { storage: app.array_storage }` | container | `ViewStorageInterface` and `device_view.storage` resolve to `app.array_storage` | active |
@@ -562,7 +562,7 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| RED-01 | Mobile redirect | `M` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?page=2&device_view=mobile`, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
+| RED-01 | Mobile redirect | `M` | `GET http://www.example.com/blog/post?page=2`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?page=2&device_view=mobile`, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | active |
 | RED-02 | Desktop redirect | `D` | `GET https://m.example.com/blog/post`, `UA=desktop_chrome` | 302, `Location: https://www.example.com/blog/post?device_view=desktop`, `Cache-Control: NS` | active |
 | RED-03 | Tablet redirect | `T` | `GET https://www.example.com/`, `UA=ipad_legacy` | 302, `Location: https://t.example.com/?device_view=tablet` | active |
 | RED-04 | No redirect on the target host | `M` | `GET https://m.example.com/blog/post`, `UA=iphone` | 200 `"mobile detector"` | active |
@@ -579,13 +579,13 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 | RED-15 | Host case is ignored | `M` | `GET https://M.Example.COM/view`, `UA=iphone` | 200 `"mobile detector"` | active |
 | RED-16 | Trailing dot of the request host is ignored | `M` | `GET https://m.example.com./view`, `UA=iphone` | 200 `"mobile detector"` | active |
 | RED-17 | Trailing dot and slash of the configured host are ignored | `redirect: { mobile: { enabled: true, host: 'https://m.example.com./' } }` | `GET https://m.example.com/view` `UA=iphone`; then `GET http://www.example.com/blog/post` `UA=iphone` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
-| RED-18 | Status 301 | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
+| RED-18 | Status 301 | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | active |
 | RED-19 | Status 308 | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 308 } }` | `GET http://www.example.com/`, `UA=iphone` | 308, `Location: https://m.example.com/?device_view=mobile` | active |
 | RED-20 | POST is not redirected | `M` | `POST http://www.example.com/form`, `UA=iphone` | 200 `"mobile detector"` | active |
 | RED-21 | HEAD is redirected | `M` | `HEAD http://www.example.com/form`, `UA=iphone` | 302, `Location: https://m.example.com/form?device_view=mobile` | active |
 | RED-22 | Custom methods | `M`, `redirect: { methods: [GET] }` | `HEAD http://www.example.com/form`, `UA=iphone` | 200 | active |
 | RED-23 | `cache_control: null` | `M`, `redirect: { cache_control: null }` | `GET http://www.example.com/`, `UA=iphone` | 302, `Cache-Control: no-cache, private` | active |
-| RED-24 | A remembered view decides the redirect | `D` | `GET https://m.example.com/`, `Cookie: device_view=desktop`, `UA=iphone` | 302, `Location: https://www.example.com/?device_view=desktop`, `Vary: [Cookie]` | planned |
+| RED-24 | A remembered view decides the redirect | `D` | `GET https://m.example.com/`, `Cookie: device_view=desktop`, `UA=iphone` | 302, `Location: https://www.example.com/?device_view=desktop`, `Vary: [Cookie]` | active |
 | RED-25 | The query is encoded with RFC 3986 | `M` | `GET http://www.example.com/blog/post?q=a+b`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?q=a%20b&device_view=mobile` | active |
 | RED-26 | Host from a valid env var | `redirect: { mobile: { enabled: true, host: '%env(DV_MOBILE_HOST)%' } }`, `DV_MOBILE_HOST=https://m.example.com` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
 | RED-27 | Host from an invalid env var | as RED-26 with `DV_MOBILE_HOST=m.example.com` | `GET http://www.example.com/view`, `UA=iphone` | 200 `"mobile detector"`; error log `The redirect host "m.example.com" of the mobile view is invalid: expected an absolute http(s) URL without query, fragment or user info. The mobile redirect is disabled.` | active |
@@ -595,7 +595,7 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 | RED-31 | The Host header never reaches `Location` | `M` | `GET http://evil.example/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
 | RED-32 | Sub-requests are never redirected | `M` | `GET https://m.example.com/with-sub-request?sub=http%3A%2F%2Fwww.example.com%2Fview`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`, no `Location` | active |
 | RED-33 | Disabled redirects leave the view lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary` | active |
-| RED-34 | Enabled redirects resolve the view | `M` | `GET https://m.example.com/`, `UA=iphone` | 200 `"home page"`, `Vary: [Cookie, User-Agent]` | planned |
+| RED-34 | Enabled redirects resolve the view | `M` | `GET https://m.example.com/`, `UA=iphone` | 200 `"home page"`, `Vary: [Cookie, User-Agent]` | active |
 | RED-35 | The host forwarded by a trusted proxy is the current host | `M` | trusted proxy `127.0.0.1` with the `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto` headers (Conventions, Trusted proxies); `GET http://10.0.0.5/view`, `X-Forwarded-Host: m.example.com`, `X-Forwarded-Proto: https`, `UA=iphone`; then the same request with `REMOTE_ADDR: 203.0.113.9` | 200 `"mobile detector"`; then 302, `Location: https://m.example.com/view?device_view=mobile` (an untrusted client's forwarded host is ignored) | active |
 
 ## 12. Per-route overrides (RTE), design.md sections 4 and 7
@@ -617,18 +617,18 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| VARY-01 | View never used | — | `GET /`, `UA=iphone` | no `Vary` | planned |
-| VARY-02 | Detector decided | — | `GET /view`, `UA=iphone` | `Vary: [Cookie, User-Agent]` | planned |
-| VARY-03 | Remembered decided | — | `GET /view`, `Cookie: device_view=tablet` | `Vary: [Cookie]` | planned |
-| VARY-04 | Switch decided | `switch: { target: none }` | `GET /view?device_view=tablet` | no `Vary` | planned |
+| VARY-01 | View never used | — | `GET /`, `UA=iphone` | no `Vary` | active |
+| VARY-02 | Detector decided | — | `GET /view`, `UA=iphone` | `Vary: [Cookie, User-Agent]` | active |
+| VARY-03 | Remembered decided | — | `GET /view`, `Cookie: device_view=tablet` | `Vary: [Cookie]` | active |
+| VARY-04 | Switch decided | `switch: { target: none }` | `GET /view?device_view=tablet` | no `Vary` | active |
 | VARY-05 | Trusted header decided | `TH` | `GET /view`, `X-Device-View: tablet` | `Vary: [Cookie, X-Device-View]` | planned |
-| VARY-06 | Appended to the controller's values | — | `GET /view`, `UA=iphone`, the controller sets `Vary: Accept-Language` | `Vary: [Accept-Language, Cookie, User-Agent]` | planned |
-| VARY-07 | No duplicates | — | `GET /view`, `UA=iphone`, the controller sets `Vary: user-agent` | `Vary: [user-agent, Cookie]` | planned |
-| VARY-08 | `http_cache.vary: false` | `http_cache: { vary: false }` | `GET /view`, `UA=iphone` | no `Vary` | planned |
+| VARY-06 | Appended to the controller's values | — | `GET /view`, `UA=iphone`, the controller sets `Vary: Accept-Language` | `Vary: [Accept-Language, Cookie, User-Agent]` | active |
+| VARY-07 | No duplicates | — | `GET /view`, `UA=iphone`, the controller sets `Vary: user-agent` | `Vary: [user-agent, Cookie]` | active |
+| VARY-08 | `http_cache.vary: false` | `http_cache: { vary: false }` | `GET /view`, `UA=iphone` | no `Vary` | active |
 | VARY-09 | Static detector varies on nothing | `detector: { id: static }` | `GET /view` | `Vary: [Cookie]` | planned |
-| VARY-10 | `storage: none` does not vary on `Cookie` | `remember: { storage: none }` | `GET /view`, `UA=iphone` | `Vary: [User-Agent]` | planned |
-| VARY-11 | A forced view varies on nothing | — | `GET /set-view/mobile` | no `Vary` | planned |
-| VARY-12 | Sub-request responses get no `Vary` | — | `GET /with-sub-request`, `UA=iphone` | the sub-request response has no `Vary`; the main response has `Vary: [Cookie, User-Agent]` | planned |
+| VARY-10 | `storage: none` does not vary on `Cookie` | `remember: { storage: none }` | `GET /view`, `UA=iphone` | `Vary: [User-Agent]` | active |
+| VARY-11 | A forced view varies on nothing | — | `GET /set-view/mobile` | no `Vary` | active |
+| VARY-12 | Sub-request responses get no `Vary` | — | `GET /with-sub-request`, `UA=iphone` | the sub-request response has no `Vary`; the main response has `Vary: [Cookie, User-Agent]` | active |
 
 ## 14. Cache-Control (HC), design.md sections 4 and 6
 
@@ -636,7 +636,7 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 |---|---|---|---|---|---|
 | HC-01 | A response writing the cookie becomes private | `remember: { detected_view: true }` | `GET /cacheable`, `UA=iphone` | `Set-Cookie: SC(mobile)`, `Cache-Control: max-age=3600, private` | active |
 | HC-02 | `private_when_remembering: false` | `remember: { detected_view: true }`, `http_cache: { private_when_remembering: false }` | `GET /cacheable`, `UA=iphone` | `Set-Cookie: SC(mobile)`, `Cache-Control: max-age=3600, public` | active |
-| HC-03 | A response without the cookie stays public | — | `GET /cacheable`, `Cookie: device_view=mobile` | no `Set-Cookie`, `Cache-Control: max-age=3600, public`, `Vary: [Cookie]` | planned |
+| HC-03 | A response without the cookie stays public | — | `GET /cacheable`, `Cookie: device_view=mobile` | no `Set-Cookie`, `Cache-Control: max-age=3600, public`, `Vary: [Cookie]` | active |
 | HC-04 | Expiring a forged cookie also makes it private | — | `GET /cacheable`, `Cookie: device_view=phone` | `Set-Cookie: SC-DEL`, `Cache-Control: max-age=3600, private` | active |
 
 ## 15. Trusted header (TH), design.md sections 4 and 5
@@ -777,7 +777,7 @@ The kernel runs with `debug: true`, TwigBundle, WebProfilerBundle and
 | FAC-09 | `getSwitchUrl()` uses the parameter and names | `switch: { parameter: view }`, `views: { names: { mobile: m } }` | `GET /view`; `getSwitchUrl('m')` | `/view?view=m` | active |
 | FAC-10 | `getSwitchUrl()` outside a request | — | empty `RequestStack`; `getSwitchUrl('mobile')` | `/?device_view=mobile` | active |
 | FAC-11 | Unknown switch target | — | `getSwitchUrl('mobile', 'back')` called twice: in a controller during `GET /view`, and with an empty `RequestStack` | both calls throw `InvalidArgumentException`, message `Unknown switch target "back". Expected "current" or "home".` | active |
-| FAC-12 | `setView()` after a read | — | in a controller, `UA=iphone`: read, then `setView('tablet')`, then read | `mobile`, then `tablet` with source Forced; `Vary: [Cookie, User-Agent]` (inputs already consulted stay) | planned |
+| FAC-12 | `setView()` after a read | — | in a controller, `UA=iphone`: read, then `setView('tablet')`, then read | `mobile`, then `tablet` with source Forced; `Vary: [Cookie, User-Agent]` (inputs already consulted stay) | active |
 | FAC-13 | Sub-requests see the main view | — | `GET /with-sub-request`, `UA=iphone` | the sub-request controller's `getView()` is Mobile | active |
 | FAC-14 | Autowiring | — | container | `DeviceView::class` is an alias of `device_view.device_view` | active |
 
@@ -859,6 +859,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-59 | Route default keys are non-empty strings | `route_defaults: { redirect: '' }`, then `route_defaults: { remember: '' }`, then `route_defaults: { redirect: false }` | container build | message contains `The path "device_view.route_defaults.redirect" cannot contain an empty value` (`remember` for the second), then `Invalid type for path "device_view.route_defaults.redirect"` | active |
 | CFG-60 | Route default keys differ | `route_defaults: { redirect: _dv, remember: _dv }` | container build | message contains `device_view.route_defaults.redirect and device_view.route_defaults.remember must be different route defaults, both are "_dv".` | active |
 | CFG-61 | A route default key cannot be the context attribute | `route_defaults: { redirect: _device_view }` | container build | message contains `device_view.route_defaults.redirect cannot be "_device_view", the request attribute that holds the device view context.` | active |
+| CFG-62 | `http_cache` keys are booleans | `http_cache: { vary: 'yes' }`, then `http_cache: { private_when_remembering: 'yes' }` | container build | message contains `Invalid type for path "device_view.http_cache.vary"` (`private_when_remembering` for the second) | active |
 
 ## 25. Configuration reference (REF), design.md section 12
 
@@ -913,7 +914,7 @@ One named test per bug of the old bundle. Each also passes on every line.
 | REG-11 | Spoofed Host never reaches `Location` | `M` | `GET /blog/post` with `Host: evil.example`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
 | REG-12 | POST is never redirected | `M` | `POST http://www.example.com/form?device_view=desktop`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
 | REG-13 | `/_fragment` gets no cookie and no redirect | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
-| REG-14 | Redirects are not cacheable | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | planned |
+| REG-14 | Redirects are not cacheable | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | active |
 | REG-15 | Route override without loading the route collection | `M`, the router's `getRouteCollection()` throws | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | active |
 | REG-16 | Invalid config fails at build, not at request time | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | `InvalidConfigurationException` (CFG-34) before any request | active |
 | REG-17 | No cookie on a first visit | — | `GET /view`, `UA=iphone`, no cookie | 200 `"mobile detector"`, no `Set-Cookie` | active |
@@ -998,7 +999,11 @@ the area; if the owner disagrees, the rows change before they become active.
 - `route_defaults.redirect` and `route_defaults.remember` must be two different keys, and neither
   can be `_device_view`, the request attribute of the context (CFG-60, CFG-61).
 - `Vary` keeps the response's values first, then adds the consulted inputs in the order they were
-  consulted, skipping names already present (compared without case) (VARY-06, VARY-07).
+  consulted, skipping names already present (compared without case) (VARY-06, VARY-07). The
+  response's own `Vary` lines stay as they are, and the added names follow as one more line,
+  e.g. `Vary: Accept-Language` then `Vary: Cookie, User-Agent`. The listener runs on
+  `kernel.response` at priority 0, before the remember listener (design.md section 5, step 5);
+  with `http_cache.vary: false` it is not registered (VARY-08).
 - Cancelling a switch redirect keeps the switched view and its remember (EVT-RED-05).
 - Matomo with `client_hints: true` passes and varies on `Sec-CH-UA`, `Sec-CH-UA-Arch`,
   `Sec-CH-UA-Bitness`, `Sec-CH-UA-Full-Version`, `Sec-CH-UA-Full-Version-List`,
