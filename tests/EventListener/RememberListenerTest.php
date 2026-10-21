@@ -6,9 +6,11 @@ namespace DeviceViewBundle\Tests\EventListener;
 
 use DeviceViewBundle\Consent\ConsentCheckerInterface;
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\BeforeRememberEvent;
 use DeviceViewBundle\EventListener\RememberListener;
 use DeviceViewBundle\Remember\CookieStorage;
 use DeviceViewBundle\Remember\RememberPolicy;
+use DeviceViewBundle\Remember\RememberTrigger;
 use DeviceViewBundle\Resolver\ResolvedView;
 use DeviceViewBundle\Resolver\Step\DetectorStep;
 use DeviceViewBundle\Resolver\Step\ForcedStep;
@@ -27,10 +29,12 @@ use DeviceViewBundle\View\ViewSource;
 use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class RememberListenerTest extends TestCase
 {
@@ -502,6 +506,185 @@ final class RememberListenerTest extends TestCase
         self::assertNull($context->routeRemember);
     }
 
+    public function testBeforeRememberEventIsDispatchedBeforeASwitchIsWritten(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $request->headers->set('X-Consent', 'no');
+        $context->markSwitched(DeviceType::Tablet);
+        $events = [];
+        $response = new Response();
+        $cookiesWhenDispatched = null;
+        $dispatcher = self::dispatcher($events, static function () use ($response, &$cookiesWhenDispatched): void {
+            $cookiesWhenDispatched = \count($response->headers->getCookies());
+        });
+
+        self::respond(self::listener(self::consentPolicy(), tabletAsMobile: true, consentChecker: new HeaderConsent(), dispatcher: $dispatcher), $request, $response);
+
+        self::assertCount(1, $events);
+        self::assertSame(RememberTrigger::Switch, $events[0]->getTrigger());
+        self::assertSame(DeviceType::Mobile, $events[0]->getView(), 'the view that is written, after tablet_as_mobile');
+        self::assertFalse($events[0]->getConsent());
+        self::assertSame(60, $events[0]->getLifetime());
+        self::assertSame(0, $cookiesWhenDispatched, 'dispatched before the write');
+        self::assertSame(['device_view' => 'mobile'], self::cookies($response));
+    }
+
+    public function testBeforeRememberEventGetsTheTriggerAndConsentOfADetectedView(): void
+    {
+        [$request, $context] = self::request('/view');
+        $request->headers->set('X-Consent', 'yes');
+        $context->resolve(new RecordingResolver([new ResolvedView(DeviceType::Tablet, ViewSource::Detector)]), $request);
+        $events = [];
+
+        $response = self::respond(self::listener(self::consentPolicy(), consentChecker: new HeaderConsent(), dispatcher: self::dispatcher($events)), $request);
+
+        self::assertCount(1, $events);
+        self::assertSame(RememberTrigger::Detected, $events[0]->getTrigger());
+        self::assertSame(DeviceType::Tablet, $events[0]->getView());
+        self::assertTrue($events[0]->getConsent());
+        self::assertSame(3600, $events[0]->getLifetime());
+        self::assertEqualsWithDelta(time() + 3600, $response->headers->getCookies()[0]->getExpiresTime(), 1);
+    }
+
+    public function testTheConsentOverrideReachesBeforeRememberEvent(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $request->headers->set('X-Consent', 'yes');
+        $context->markSwitched(DeviceType::Tablet);
+        $context->setConsent(false);
+        $events = [];
+
+        self::respond(self::listener(self::consentPolicy(), consentChecker: new HeaderConsent(), dispatcher: self::dispatcher($events)), $request);
+
+        self::assertCount(1, $events);
+        self::assertFalse($events[0]->getConsent());
+        self::assertSame(60, $events[0]->getLifetime());
+    }
+
+    /**
+     * @return iterable<string, array{int, int|null}>
+     */
+    public static function eventLifetimes(): iterable
+    {
+        yield 'longer' => [7200, 7200];
+        yield 'browser session' => [0, null];
+    }
+
+    #[DataProvider('eventLifetimes')]
+    public function testTheLifetimeOfBeforeRememberEventIsWritten(int $lifetime, ?int $maxAge): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+        $events = [];
+        $dispatcher = self::dispatcher($events, static function (BeforeRememberEvent $event) use ($lifetime): void {
+            $event->setLifetime($lifetime);
+        });
+
+        $response = self::respond(self::listener(new RememberPolicy(lifetime: 60), dispatcher: $dispatcher), $request);
+
+        $cookies = $response->headers->getCookies();
+        self::assertCount(1, $cookies);
+        if (null === $maxAge) {
+            self::assertSame(0, $cookies[0]->getExpiresTime(), 'a browser-session cookie');
+        } else {
+            self::assertEqualsWithDelta(time() + $maxAge, $cookies[0]->getExpiresTime(), 1);
+        }
+    }
+
+    public function testACancelledBeforeRememberEventWritesNothing(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+        $events = [];
+        $dispatcher = self::dispatcher($events, static function (BeforeRememberEvent $event): void {
+            $event->cancel();
+        });
+
+        $response = self::respond(self::listener(dispatcher: $dispatcher), $request, new Response()->setPublic()->setMaxAge(60));
+
+        self::assertCount(1, $events);
+        self::assertSame([], self::cookies($response));
+        self::assertSame('max-age=60, public', $response->headers->get('Cache-Control'), 'nothing private is forced');
+    }
+
+    public function testACancelledBeforeRememberEventStillExpiresAForgedValue(): void
+    {
+        [$request, $context] = self::request('/view');
+        $context->resolve(new RecordingResolver([new ResolvedView(DeviceType::Tablet, ViewSource::Detector)]), $request);
+        $context->markForgedStoredValue();
+        $events = [];
+        $dispatcher = self::dispatcher($events, static function (BeforeRememberEvent $event): void {
+            $event->cancel();
+        });
+
+        $response = self::respond(self::listener(new RememberPolicy(detectedView: true), dispatcher: $dispatcher), $request, new Response()->setPublic());
+
+        self::assertCount(1, $events);
+        $cookies = $response->headers->getCookies();
+        self::assertCount(1, $cookies);
+        self::assertTrue($cookies[0]->isCleared());
+        self::assertSame('private', $response->headers->get('Cache-Control'));
+    }
+
+    /**
+     * @param \Closure(Request, DeviceViewContext): void $prepare
+     */
+    #[DataProvider('noWrites')]
+    public function testBeforeRememberEventIsNotDispatchedWithoutAWrite(\Closure $prepare, RememberPolicy $policy): void
+    {
+        [$request, $context] = self::request('/view');
+        $request->headers->set('X-Consent', 'no');
+        $prepare($request, $context);
+        $events = [];
+
+        self::respond(self::listener($policy, consentChecker: new HeaderConsent(), dispatcher: self::dispatcher($events)), $request);
+
+        self::assertSame([], $events);
+    }
+
+    public function testBeforeRememberEventIsNotDispatchedWhenTheConsentStopsTheWrite(): void
+    {
+        [$request, $context] = self::request('/view');
+        $request->headers->set('X-Consent', 'no');
+        $context->resolve(new RecordingResolver([new ResolvedView(DeviceType::Tablet, ViewSource::Detector)]), $request);
+        $events = [];
+
+        $response = self::respond(self::listener(self::consentPolicy(), consentChecker: new HeaderConsent(), dispatcher: self::dispatcher($events)), $request);
+
+        self::assertSame([], $events);
+        self::assertSame([], self::cookies($response));
+    }
+
+    public function testBeforeRememberEventIsNotDispatchedWhenTheRouteStopsTheWrite(): void
+    {
+        [$request, $context] = self::request('/no-remember?device_view=tablet');
+        $request->attributes->set('_device_view_remember', false);
+        $context->markSwitched(DeviceType::Tablet);
+        $events = [];
+        $names = new ViewNames();
+        $listener = new RememberListener(self::resolver($names), new CookieStorage(), new RememberPolicy(), $names, routeDefaults: new RouteDefaults(), dispatcher: self::dispatcher($events));
+
+        self::respond($listener, $request);
+
+        self::assertSame([], $events);
+    }
+
+    public function testBeforeRememberEventIsNotDispatchedOnASkippedRequestNorWithoutStorage(): void
+    {
+        $request = Request::create('/view?device_view=tablet');
+        $context = new DeviceViewContext(skipped: true);
+        $request->attributes->set(DeviceViewContext::ATTRIBUTE, $context);
+        $context->markSwitched(DeviceType::Tablet);
+        $events = [];
+        self::respond(self::listener(dispatcher: self::dispatcher($events)), $request);
+        self::assertSame([], $events, 'a skipped request');
+
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+        self::respond(self::listener(withStorage: false, dispatcher: self::dispatcher($events)), $request);
+        self::assertSame([], $events, 'no storage');
+    }
+
     private static function routeListener(?ConsentCheckerInterface $consentChecker = null): RememberListener
     {
         $names = new ViewNames();
@@ -538,9 +721,29 @@ final class RememberListenerTest extends TestCase
         ]);
     }
 
-    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true, bool $tabletAsMobile = false, bool $withStorage = true, ?ConsentCheckerInterface $consentChecker = null): RememberListener
+    private static function listener(RememberPolicy $policy = new RememberPolicy(), ViewNames $names = new ViewNames(), bool $privateWhenRemembering = true, bool $tabletAsMobile = false, bool $withStorage = true, ?ConsentCheckerInterface $consentChecker = null, ?EventDispatcherInterface $dispatcher = null): RememberListener
     {
-        return new RememberListener(self::resolver($names), $withStorage ? new CookieStorage() : null, $policy, $names, $privateWhenRemembering, $tabletAsMobile, $consentChecker);
+        return new RememberListener(self::resolver($names), $withStorage ? new CookieStorage() : null, $policy, $names, $privateWhenRemembering, $tabletAsMobile, $consentChecker, dispatcher: $dispatcher);
+    }
+
+    /**
+     * A dispatcher whose only BeforeRememberEvent listener adds each event to $events, then calls
+     * $onEvent.
+     *
+     * @param list<BeforeRememberEvent>                  $events
+     * @param (\Closure(BeforeRememberEvent): void)|null $onEvent
+     */
+    private static function dispatcher(array &$events, ?\Closure $onEvent = null): EventDispatcher
+    {
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(BeforeRememberEvent::class, static function (BeforeRememberEvent $event) use (&$events, $onEvent): void {
+            $events[] = $event;
+            if (null !== $onEvent) {
+                $onEvent($event);
+            }
+        });
+
+        return $dispatcher;
     }
 
     /**

@@ -6,6 +6,7 @@ namespace DeviceViewBundle\EventListener;
 
 use DeviceViewBundle\Consent\ConsentCheckerInterface;
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\BeforeRememberEvent;
 use DeviceViewBundle\Remember\RememberPolicy;
 use DeviceViewBundle\Remember\RememberTrigger;
 use DeviceViewBundle\Remember\ViewStorageInterface;
@@ -17,6 +18,7 @@ use DeviceViewBundle\View\ViewSource;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Remembers the view on the response of the main request, on kernel.response at priority 0.
@@ -27,10 +29,10 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  * the detected trigger. The remember policy decides whether the write happens and its lifetime,
  * from the consent: DeviceView::setConsent(), or else the consent checker, asked only when the
  * policy may write for the trigger. DeviceView::setRemember(false) and the remember route default
- * false of the matched route stop any write; neither true bypasses the policy. When nothing
- * is written, a forged stored value is expired, when the storage can remove it. A response that
- * writes or expires the stored value becomes private when http_cache.private_when_remembering is
- * set.
+ * false of the matched route stop any write; neither true bypasses the policy. Right before a
+ * write, BeforeRememberEvent may change its lifetime or cancel it. When nothing is written, a
+ * forged stored value is expired, when the storage can remove it. A response that writes or
+ * expires the stored value becomes private when http_cache.private_when_remembering is set.
  *
  * Skipped requests never write nor expire, and neither does any request without a storage
  * (remember.storage: none). Once this listener ran, DeviceView ignores changes.
@@ -38,9 +40,10 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
 final readonly class RememberListener
 {
     /**
-     * @param ViewStorageInterface|null    $storage        the remember storage, or null when remember.storage is none
-     * @param ConsentCheckerInterface|null $consentChecker the checker of consent.provider, or null when it is not set
-     * @param RouteDefaults|null           $routeDefaults  the reader of the route defaults; without it, routes override nothing
+     * @param ViewStorageInterface|null     $storage        the remember storage, or null when remember.storage is none
+     * @param ConsentCheckerInterface|null  $consentChecker the checker of consent.provider, or null when it is not set
+     * @param RouteDefaults|null            $routeDefaults  the reader of the route defaults; without it, routes override nothing
+     * @param EventDispatcherInterface|null $dispatcher     dispatches BeforeRememberEvent; without it, no event
      */
     public function __construct(
         private ViewResolverInterface $resolver,
@@ -51,6 +54,7 @@ final readonly class RememberListener
         private bool $tabletAsMobile = false,
         private ?ConsentCheckerInterface $consentChecker = null,
         private ?RouteDefaults $routeDefaults = null,
+        private ?EventDispatcherInterface $dispatcher = null,
     ) {
     }
 
@@ -97,7 +101,8 @@ final readonly class RememberListener
             return false;
         }
 
-        $lifetime = $this->policy->lifetime($trigger, $context->consent ?? $this->consentChecker?->hasConsent($request));
+        $consent = $context->consent ?? $this->consentChecker?->hasConsent($request);
+        $lifetime = $this->policy->lifetime($trigger, $consent);
         if (null === $lifetime) {
             return false;
         }
@@ -107,7 +112,13 @@ final readonly class RememberListener
             $view = DeviceType::Mobile;
         }
 
-        $storage->write($request, $response, $this->names->nameOf($view), $lifetime);
+        $beforeRemember = new BeforeRememberEvent($trigger, $view, $consent, $lifetime);
+        $this->dispatcher?->dispatch($beforeRemember);
+        if ($beforeRemember->isCancelled()) {
+            return false;
+        }
+
+        $storage->write($request, $response, $this->names->nameOf($view), $beforeRemember->getLifetime());
 
         return true;
     }

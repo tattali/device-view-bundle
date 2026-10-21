@@ -123,7 +123,8 @@ final readonly class SwitchListener
         // false) and arrives on the host of its view stays on the page that carries it: the
         // redirect to the page without the parameter would forget the view, and the device
         // redirect could then send the request back to the host it came from, in a loop.
-        // BeforeRememberEvent, which can also stop the remember, is checked here once it exists.
+        // BeforeRememberEvent cannot be checked here: it is dispatched on the response, with the
+        // consent and the view known then, after this redirect is decided.
         if (!$this->remembersTheSwitch($request, $context) && $this->redirectPolicy->servesHere($request, $view, $routeAction)) {
             return null;
         }
