@@ -725,6 +725,9 @@ parameter is ignored), redirects, remembers or expires a stored value.
 | EVT-REM-12 | A cancelled remember forces nothing private | `remember: { detected_view: true }`, a listener calling `cancel()` | `GET /cacheable`, `UA=iphone` | 200 `"mobile detector"`, no `Set-Cookie`, `Cache-Control: max-age=3600, public`, 1 call | active |
 | EVT-REM-13 | A cancelled switch remember causes no loop | `M`, `D`, a listener calling `cancel()` | `GET https://m.example.com/view`, `UA=iphone`, `Cookie: device_view=desktop`; then `GET https://www.example.com/view?device_view=desktop`, `UA=iphone`, no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`, 0 calls; second response: 200 `"desktop switch"`, no `Location`, no `Set-Cookie`, 1 call (`switch`, Desktop, consent null, lifetime 0) | active |
 | EVT-REM-14 | Dispatched once for a switch redirected on the host of its view | `M`, `D`, a listener calling `setLifetime(3600)` | `GET https://www.example.com/view?device_view=desktop`, `UA=iphone` | 302, `Location: /view`, `Set-Cookie: SCS(desktop, 3600)`, 1 call | active |
+| EVT-REM-15 | The switch listener's event has the consent | `TAC`, `M`, `D`, a recording listener | `GET https://www.example.com/view?device_view=desktop`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=true` | 302, `Location: /view`, `Set-Cookie: SCS(desktop, 31536000)`, 1 call (`switch`, Desktop, consent true, lifetime 31536000) | active |
+| EVT-REM-16 | The switch listener dispatches nothing without storage | `M`, `D`, `remember: { storage: none }`, a counting listener | `GET https://www.example.com/view?device_view=desktop`, `UA=iphone` | 302, `Location: /view`, no `Set-Cookie`, 0 calls | active |
+| EVT-REM-17 | The switch listener's event has the view after `tablet_as_mobile` | `tablet_as_mobile: true`, `M`, `D`, a recording listener | `GET https://m.example.com/view?device_view=tablet`, `UA=iphone` | 302, `Location: /view`, `Set-Cookie: SCS(mobile)`, 1 call (`switch`, Mobile, consent null, lifetime 0) | active |
 
 ## 19. Twig (TWIG), design.md section 10
 
@@ -1088,7 +1091,15 @@ the area; if the owner disagrees, the rows change before they become active.
   controller then changes the view or the consent, the response dispatches the event again with
   the values it writes. Elsewhere the event is dispatched on the response only, so cancelling the
   remember of a switch keeps its redirect (EVT-REM-04). `DeviceView::setRemember(false)` called
-  before the switch listener also keeps the switch on its page there.
+  before the switch listener also keeps the switch on its page there. The switch listener's
+  event has the consent of `consent.provider` and the view after `tablet_as_mobile`, as the
+  response would, and is not dispatched without a storage (EVT-REM-15 to EVT-REM-17). The
+  response reuses that event whenever the view and the consent it writes are the same, so two
+  rare cases get no new dispatch, after a `BeforeRedirectEvent` listener cancels the redirect:
+  a controller that calls `DeviceView::setView()` with the same view and `remember: true` gets
+  the event already dispatched, cancelled or with its lifetime changed; and a controller that
+  calls `DeviceView::setRemember(false)` stops the write although a listener has already seen
+  the event.
 - `BeforeRedirectEvent::setStatus()` with a status outside 301, 302, 303, 307 and 308, and
   `BeforeRememberEvent::setLifetime()` with a negative value, throw `InvalidArgumentException`
   (EVT-RED-07, EVT-REM-09).

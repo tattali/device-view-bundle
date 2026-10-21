@@ -127,6 +127,7 @@ final class BeforeRememberEventTest extends TestCase
 
         $response = $this->handle(self::request('/cacheable', 'iphone'));
 
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame('mobile detector', $response->getContent());
         self::assertNoCookie($response);
         self::assertSame('max-age=3600, public', $response->headers->get('Cache-Control'));
@@ -146,6 +147,7 @@ final class BeforeRememberEventTest extends TestCase
 
         $response = $this->handle(self::request('/cacheable', 'iphone', cookies: ['device_view' => 'phone']));
 
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame('mobile detector', $response->getContent());
         self::assertSetCookie(self::scDel(), $response);
         self::assertSame('max-age=3600, private', $response->headers->get('Cache-Control'));
@@ -172,6 +174,7 @@ final class BeforeRememberEventTest extends TestCase
 
         $response = $this->handle(self::request('https://www.example.com/view?device_view=desktop', 'iphone'));
 
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame('desktop switch', $response->getContent());
         self::assertNull($response->headers->get('Location'));
         self::assertNoCookie($response);
@@ -196,6 +199,55 @@ final class BeforeRememberEventTest extends TestCase
         self::assertSame('/view', $response->headers->get('Location'));
         self::assertSetCookie(self::scs('desktop', 3600), $response);
         self::assertCount(1, $this->listener()->events);
+    }
+
+    /**
+     * The switch listener gets the consent checker of consent.provider: its event has the
+     * consent and the lifetime the response writes, so the response does not dispatch it again.
+     */
+    #[Group('EVT-REM-15')]
+    public function testTheSwitchListenerEventHasTheConsent(): void
+    {
+        $this->boot(self::TAC + self::MD);
+
+        $response = $this->handle(self::request('https://www.example.com/view?device_view=desktop', 'iphone', cookies: self::GRANTED));
+
+        self::assertSame(302, $response->getStatusCode());
+        self::assertSame('/view', $response->headers->get('Location'));
+        self::assertSetCookie(self::scs('desktop', 31536000), $response);
+        self::assertSame([['trigger' => RememberTrigger::Switch, 'view' => DeviceType::Desktop, 'consent' => true, 'lifetime' => 31536000]], $this->listener()->events);
+    }
+
+    /**
+     * Without a storage, the switch listener dispatches no event: nothing is written.
+     */
+    #[Group('EVT-REM-16')]
+    public function testTheSwitchListenerDispatchesNothingWithoutStorage(): void
+    {
+        $this->boot(self::MD + ['remember' => ['storage' => 'none']]);
+
+        $response = $this->handle(self::request('https://www.example.com/view?device_view=desktop', 'iphone'));
+
+        self::assertSame(302, $response->getStatusCode());
+        self::assertSame('/view', $response->headers->get('Location'));
+        self::assertNoCookie($response);
+        self::assertSame([], $this->listener()->events);
+    }
+
+    /**
+     * The switch listener applies tablet_as_mobile: its event has the view that is written.
+     */
+    #[Group('EVT-REM-17')]
+    public function testTheSwitchListenerEventHasTheMappedView(): void
+    {
+        $this->boot(['tablet_as_mobile' => true] + self::MD);
+
+        $response = $this->handle(self::request('https://m.example.com/view?device_view=tablet', 'iphone'));
+
+        self::assertSame(302, $response->getStatusCode());
+        self::assertSame('/view', $response->headers->get('Location'));
+        self::assertSetCookie(self::scs('mobile'), $response);
+        self::assertSame([['trigger' => RememberTrigger::Switch, 'view' => DeviceType::Mobile, 'consent' => null, 'lifetime' => 0]], $this->listener()->events);
     }
 
     /**
