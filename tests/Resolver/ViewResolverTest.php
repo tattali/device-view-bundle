@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Resolver;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\ViewResolvedEvent;
+use DeviceViewBundle\Resolver\Step\ForcedStep;
 use DeviceViewBundle\Resolver\Step\StepResult;
 use DeviceViewBundle\Resolver\ViewResolver;
 use DeviceViewBundle\Tests\App\Resolver\FakeStep;
@@ -12,6 +14,7 @@ use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewSource;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ViewResolverTest extends TestCase
@@ -87,6 +90,83 @@ final class ViewResolverTest extends TestCase
         $resolved = new ViewResolver([new FakeStep(ViewSource::Detector, new StepResult(DeviceType::Tablet))], DeviceType::Desktop, false)
             ->resolve(Request::create('/'), new DeviceViewContext());
 
+        self::assertSame(DeviceType::Tablet, $resolved->view);
+    }
+
+    public function testViewResolvedEventIsDispatchedAfterTabletAsMobile(): void
+    {
+        $dispatcher = new EventDispatcher();
+        $events = [];
+        $dispatcher->addListener(ViewResolvedEvent::class, static function (ViewResolvedEvent $event) use (&$events): void {
+            $events[] = [$event->getView(), $event->getSource(), $event->getRequest()];
+        });
+        $request = Request::create('/');
+        $steps = [new FakeStep(ViewSource::Detector, new StepResult(DeviceType::Tablet, ['User-Agent']))];
+
+        $resolved = new ViewResolver($steps, DeviceType::Desktop, true, $dispatcher)->resolve($request, new DeviceViewContext());
+
+        self::assertSame([[DeviceType::Mobile, ViewSource::Detector, $request]], $events);
+        self::assertSame(DeviceType::Mobile, $resolved->view);
+    }
+
+    public function testAListenerChangesTheViewAndTheSourceAndInputsStay(): void
+    {
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(ViewResolvedEvent::class, static function (ViewResolvedEvent $event): void {
+            $event->setView(DeviceType::Tablet);
+        });
+        $context = new DeviceViewContext();
+        $steps = [new FakeStep(ViewSource::Detector, new StepResult(DeviceType::Mobile, ['User-Agent']))];
+
+        $resolved = new ViewResolver($steps, DeviceType::Desktop, true, $dispatcher)->resolve(Request::create('/'), $context);
+
+        self::assertSame(DeviceType::Tablet, $resolved->view, 'tablet_as_mobile does not map the view a listener sets');
+        self::assertSame(ViewSource::Detector, $resolved->source);
+        self::assertSame(['User-Agent'], $resolved->consultedInputs);
+        self::assertTrue($context->viewResolvedDispatched);
+    }
+
+    public function testViewResolvedEventIsDispatchedOncePerContext(): void
+    {
+        $dispatcher = new EventDispatcher();
+        /** @var \ArrayObject<int, DeviceType> $events */
+        $events = new \ArrayObject();
+        $dispatcher->addListener(ViewResolvedEvent::class, static function (ViewResolvedEvent $event) use ($events): void {
+            $events->append($event->getView());
+            $event->setView(DeviceType::Desktop);
+        });
+        $resolver = new ViewResolver([new ForcedStep(), new FakeStep(ViewSource::Detector, new StepResult(DeviceType::Mobile))], dispatcher: $dispatcher);
+        $request = Request::create('/');
+        $context = new DeviceViewContext();
+
+        self::assertSame(DeviceType::Desktop, $resolver->resolve($request, $context)->view);
+        $context->force(DeviceType::Tablet);
+        $forced = $resolver->resolve($request, $context);
+
+        self::assertSame([DeviceType::Mobile], $events->getArrayCopy());
+        self::assertSame(DeviceType::Tablet, $forced->view, 'a view forced after the event is not changed again');
+        self::assertSame(ViewSource::Forced, $forced->source);
+
+        $resolver->resolve($request, new DeviceViewContext());
+        self::assertSame([DeviceType::Mobile, DeviceType::Mobile], $events->getArrayCopy(), 'another request gets its own event');
+    }
+
+    public function testAListenerReadingTheViewAgainDoesNotDispatchAgain(): void
+    {
+        $dispatcher = new EventDispatcher();
+        $resolver = new ViewResolver([new FakeStep(ViewSource::Detector, new StepResult(DeviceType::Mobile))], dispatcher: $dispatcher);
+        $request = Request::create('/');
+        $context = new DeviceViewContext();
+        $calls = 0;
+        $dispatcher->addListener(ViewResolvedEvent::class, static function (ViewResolvedEvent $event) use (&$calls, $resolver, $request, $context): void {
+            ++$calls;
+            $resolver->resolve($request, $context);
+            $event->setView(DeviceType::Tablet);
+        });
+
+        $resolved = $resolver->resolve($request, $context);
+
+        self::assertSame(1, $calls);
         self::assertSame(DeviceType::Tablet, $resolved->view);
     }
 

@@ -76,6 +76,11 @@ final class DeviceViewContext
     public private(set) bool $forgedStoredValue = false;
 
     /**
+     * Whether ViewResolvedEvent was dispatched for this request: it is dispatched once.
+     */
+    public private(set) bool $viewResolvedDispatched = false;
+
+    /**
      * Whether the response listener ran: DeviceView ignores changes from then on.
      */
     public private(set) bool $responseBuilt = false;
@@ -203,6 +208,14 @@ final class DeviceViewContext
     public function markForgedStoredValue(): void
     {
         $this->forgedStoredValue = true;
+    }
+
+    /**
+     * Records that ViewResolvedEvent was dispatched for this request.
+     */
+    public function markViewResolvedDispatched(): void
+    {
+        $this->viewResolvedDispatched = true;
     }
 
     /**

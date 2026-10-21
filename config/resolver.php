@@ -57,6 +57,7 @@ return static function (ContainerConfigurator $container): void {
                 ],
                 new AbstractArgument('default_view'),
                 new AbstractArgument('tablet_as_mobile'),
+                new Reference('event_dispatcher'),
             ])
         ->alias(ViewResolverInterface::class, 'device_view.resolver')
 

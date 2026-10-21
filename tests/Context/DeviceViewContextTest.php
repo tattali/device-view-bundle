@@ -218,6 +218,16 @@ final class DeviceViewContextTest extends TestCase
         self::assertTrue($context->forgedStoredValue);
     }
 
+    public function testMarkingTheViewResolvedEventDispatchedRecordsIt(): void
+    {
+        $context = new DeviceViewContext();
+        self::assertFalse($context->viewResolvedDispatched);
+
+        $context->markViewResolvedDispatched();
+
+        self::assertTrue($context->viewResolvedDispatched);
+    }
+
     public function testMarkingTheResponseBuiltRecordsIt(): void
     {
         $context = new DeviceViewContext();
