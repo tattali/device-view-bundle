@@ -657,15 +657,15 @@ parameter is ignored), redirects, remembers or expires a stored value.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| SKIP-01 | The fragment path is skipped | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
-| SKIP-02 | `skip.fragments: false` | as SKIP-01, plus `skip: { fragments: false }` | as SKIP-01 | 302, `Location` = `https://m.example.com/_fragment?` + the query of the signed URL the test sent, rebuilt as in RED-25 (same parameter order, RFC 3986 encoding) + `&device_view=mobile`; the test computes this value from the URL it signed | planned |
-| SKIP-03 | A custom fragment path is skipped | as SKIP-01 with `framework.fragments.path: /_frag` | the signed `/_frag?…` URL | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
-| SKIP-04 | `/_fragment` when fragments are off | `M`, `remember: { detected_view: true }` (no `framework.fragments`, route `fragment_stub`) | `GET http://www.example.com/_fragment`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
-| SKIP-05 | Profiler paths are skipped by default | `M` (routes `profiler_stub` and `wdt_stub`) | `GET http://www.example.com/_profiler/abc`, then `GET http://www.example.com/_wdt/abc`, `UA=iphone` | 200 `"mobile detector"` each time, no `Location` | planned |
-| SKIP-06 | Custom skip paths | `skip: { paths: ['^/api'] }` | `GET /api/thing?device_view=mobile`, `UA=desktop_chrome` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | planned |
-| SKIP-07 | Custom paths replace the defaults | `M`, `skip: { paths: ['^/api'] }` (route `profiler_stub`) | `GET http://www.example.com/_profiler/abc`, `UA=iphone` | 302, `Location: https://m.example.com/_profiler/abc?device_view=mobile` | planned |
-| SKIP-08 | A skipped request still resolves and varies | `skip: { paths: ['^/api'] }` | `GET /api/thing`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | planned |
-| SKIP-09 | Paths match the path info | `skip: { paths: ['^/api'] }` | front controller `/app`: `GET http://localhost/app/api/thing?device_view=mobile` | 200 `"desktop detector"`, no `Location` | planned |
+| SKIP-01 | The fragment path is skipped | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
+| SKIP-02 | `skip.fragments: false` | as SKIP-01, plus `skip: { fragments: false }` | as SKIP-01 | 302, `Location` = `https://m.example.com/_fragment?` + the query of the signed URL the test sent without its `_path` parameter, which Symfony's FragmentListener removes from the request before the redirect listener runs, rebuilt as in RED-25 (same parameter order, RFC 3986 encoding) + `&device_view=mobile`; the test computes this value from the URL it signed | active |
+| SKIP-03 | A custom fragment path is skipped | as SKIP-01 with `framework.fragments.path: /_frag` | the signed `/_frag?…` URL | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
+| SKIP-04 | `/_fragment` when fragments are off | `M`, `remember: { detected_view: true }` (no `framework.fragments`, route `fragment_stub`) | `GET http://www.example.com/_fragment`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
+| SKIP-05 | Profiler paths are skipped by default | `M` (routes `profiler_stub` and `wdt_stub`) | `GET http://www.example.com/_profiler/abc`, then `GET http://www.example.com/_wdt/abc`, `UA=iphone` | 200 `"mobile detector"` each time, no `Location` | active |
+| SKIP-06 | Custom skip paths | `skip: { paths: ['^/api'] }` | `GET /api/thing?device_view=mobile`, `UA=desktop_chrome` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
+| SKIP-07 | Custom paths replace the defaults | `M`, `skip: { paths: ['^/api'] }` (route `profiler_stub`) | `GET http://www.example.com/_profiler/abc`, `UA=iphone` | 302, `Location: https://m.example.com/_profiler/abc?device_view=mobile` | active |
+| SKIP-08 | A skipped request still resolves and varies | `skip: { paths: ['^/api'] }` | `GET /api/thing`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | active |
+| SKIP-09 | Paths match the path info | `skip: { paths: ['^/api'] }` | front controller `/app`: `GET http://localhost/app/api/thing?device_view=mobile` | 200 `"desktop detector"`, no `Location` | active |
 
 ## 17. Accept-CH (ACH), design.md sections 4 and 6
 
@@ -841,7 +841,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-40 | Redirect action enum | `redirect: { mobile: { action: back } }` | container build | message contains `The value "back" is not allowed for path "device_view.redirect.mobile.action"` | active |
 | CFG-41 | Device redirect status set | `redirect: { mobile: { status: 304 } }` | container build | message contains `The value 304 is not allowed for path "device_view.redirect.mobile.status"` | active |
 | CFG-42 | Redirect methods not empty | `redirect: { methods: [] }` | container build | message contains `device_view.redirect.methods must list at least one method.` | active |
-| CFG-43 | Skip path regex | `skip: { paths: ['^/(api'] }` | container build | message contains `device_view.skip.paths contains an invalid regular expression: "^/(api".` | planned |
+| CFG-43 | Skip path regex | `skip: { paths: ['^/(api'] }` | container build | message contains `device_view.skip.paths contains an invalid regular expression: "^/(api".` | active |
 | CFG-44 | Trusted header name | `trusted_header: { name: 'X Device' }`, then `trusted_header: { name: 5 }` | container build | message contains `device_view.trusted_header.name "X Device" is not a valid header name.`, then `device_view.trusted_header.name must be null or a header name, got 5.` | active |
 | CFG-45 | Twig prefix | `twig: { prefix: 'dv-' }` | container build | message contains `device_view.twig.prefix "dv-" must be empty or match ^[a-z_][a-z0-9_]*$.` | planned |
 | CFG-46 | Auto without any detector package | `detector: { id: auto }`, neither library installed | container build | `LogicException`, the DET-AUTO-03 message | active |
@@ -862,6 +862,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-61 | A route default key cannot be the context attribute | `route_defaults: { redirect: _device_view }` | container build | message contains `device_view.route_defaults.redirect cannot be "_device_view", the request attribute that holds the device view context.` | active |
 | CFG-62 | `http_cache` keys are booleans | `http_cache: { vary: 'yes' }`, then `http_cache: { private_when_remembering: 'yes' }` | container build | message contains `Invalid type for path "device_view.http_cache.vary"` (`private_when_remembering` for the second) | active |
 | CFG-63 | `trusted_header.trusted_proxies_only` is a boolean | `trusted_header: { name: X-Device-View, trusted_proxies_only: 'yes' }` | container build | message contains `Invalid type for path "device_view.trusted_header.trusted_proxies_only"` | active |
+| CFG-64 | `skip` key types | `skip: { fragments: 'yes' }`, then `skip: { paths: [['^/api']] }` | container build | message contains `Invalid type for path "device_view.skip.fragments"`, then `Invalid type for path "device_view.skip.paths.0"` | active |
 
 ## 25. Configuration reference (REF), design.md section 12
 
@@ -915,7 +916,7 @@ One named test per bug of the old bundle. Each also passes on every line.
 | REG-10 | Following redirects ends | `M`, `D` | from `GET http://www.example.com/blog/post` `UA=iphone`, follow each `Location` with the cookies received, at most 5 times | ends with 200 `"mobile remembered"` on `https://m.example.com/blog/post` after 2 redirects | active |
 | REG-11 | Spoofed Host never reaches `Location` | `M` | `GET /blog/post` with `Host: evil.example`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=mobile` | active |
 | REG-12 | POST is never redirected | `M` | `POST http://www.example.com/form?device_view=desktop`, `UA=iphone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
-| REG-13 | `/_fragment` gets no cookie and no redirect | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | planned |
+| REG-13 | `/_fragment` gets no cookie and no redirect | `M`, `remember: { detected_view: true }`, `framework.fragments: true` | `GET http://www.example.com/_fragment?…` (a signed fragment URL rendering the `view` controller), `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, no `Location`, no `Set-Cookie` | active |
 | REG-14 | Redirects are not cacheable | `redirect: { mobile: { enabled: true, host: 'https://m.example.com', status: 301 } }` | `GET http://www.example.com/`, `UA=iphone` | 301, `Cache-Control: NS`, `Vary: [Cookie, User-Agent]` | active |
 | REG-15 | Route override without loading the route collection | `M`, the router's `getRouteCollection()` throws | `GET http://www.example.com/no-redirect`, `UA=iphone` | 200 `"mobile detector"` | active |
 | REG-16 | Invalid config fails at build, not at request time | `redirect: { mobile: { enabled: true, host: m.example.com } }` | container build | `InvalidConfigurationException` (CFG-34) before any request | active |
@@ -1044,6 +1045,11 @@ the area; if the owner disagrees, the rows change before they become active.
   `secure` (CK-16). `same_site: none` with `secure: false` is a configuration error (CFG-26).
 - A library detector named in `detector.chain` whose package is missing fails the container
   build with its own message, which names the chain (CFG-54, CFG-55).
+- `skip.paths` are regular expressions without delimiters, matched with `{` and `}` as
+  delimiters against `rawurldecode()` of the path info, as the firewall's `path` and the router
+  decode it, so an encoded path is skipped like the path it routes to (SKIP-09, CFG-43). The
+  fragment path is compared to the same decoded path info, exactly, as Symfony's FragmentListener
+  does (SKIP-01, SKIP-03). Setting `skip.paths` replaces the default list (SKIP-07).
 - The test app adds stub routes on the skipped paths (`profiler_stub`, `wdt_stub`,
   `fragment_stub`), because a path without a route gets a 404 from the router before the switch
   and redirect listeners run (SKIP-04, SKIP-05, SKIP-07).

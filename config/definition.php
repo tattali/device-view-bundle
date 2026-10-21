@@ -378,6 +378,34 @@ return static function (DefinitionConfigurator $definition): void {
                     ->end()
                 ->end()
             ->end()
+            ->arrayNode('skip')
+                ->info('The main requests the bundle skips: they still resolve their view when asked, but never switch, redirect, remember nor expire a stored value.')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->booleanNode('fragments')
+                        ->info('Skip the fragment path: framework.fragments.path, or /_fragment without it.')
+                        ->defaultTrue()
+                    ->end()
+                    ->arrayNode('paths')
+                        ->info('Regular expressions, without delimiters, matched against the decoded path info, as the firewall\'s path does; a request matching one is skipped. Setting the list replaces the default.')
+                        ->defaultValue(['^/_(profiler|wdt)'])
+                        ->stringPrototype()->end()
+                        ->validate()
+                            ->always(static function (array $paths): array {
+                                /** @var list<string> $paths the string prototype rejects anything else */
+                                foreach ($paths as $path) {
+                                    // the delimiters ContextListener matches with
+                                    if (false === @preg_match('{'.$path.'}', '')) {
+                                        throw new InvalidArgumentException(sprintf('device_view.skip.paths contains an invalid regular expression: "%s".', $path));
+                                    }
+                                }
+
+                                return $paths;
+                            })
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
         ->end()
     ;
 

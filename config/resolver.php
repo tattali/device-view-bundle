@@ -20,13 +20,15 @@ use Symfony\Component\HttpKernel\KernelEvents;
 // The per-request context, the lazy resolution of the view and the DeviceView facade.
 // DeviceViewBundle::loadExtension() sets the arguments that come from the configuration, and
 // device_view.resolver, an alias of device_view.resolver.default or of services.resolver. It
-// removes the trusted header step when trusted_header.name is not set.
+// removes the trusted header step when trusted_header.name is not set. FragmentPathPass sets the
+// fragment path the context listener skips.
 return static function (ContainerConfigurator $container): void {
     $container->services()
         ->set('device_view.view_names', ViewNames::class)
             ->args([new AbstractArgument('views.names')])
 
         ->set('device_view.context_listener', ContextListener::class)
+            ->args([new AbstractArgument('the fragment path when skip.fragments is true'), new AbstractArgument('skip.paths')])
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 33])
 
         // the sources of the resolution order (design.md section 5), each step in its place

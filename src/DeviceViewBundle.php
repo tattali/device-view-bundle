@@ -7,6 +7,7 @@ namespace DeviceViewBundle;
 use DeviceViewBundle\Consent\ConsentCheckerInterface;
 use DeviceViewBundle\DependencyInjection\Compiler\CheckConfiguredServicesPass;
 use DeviceViewBundle\DependencyInjection\Compiler\CheckSessionStoragePass;
+use DeviceViewBundle\DependencyInjection\Compiler\FragmentPathPass;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\Detector\MobileDetectDetector;
 use DeviceViewBundle\Redirect\RedirectAction;
@@ -44,6 +45,7 @@ final class DeviceViewBundle extends AbstractBundle
     {
         $container->addCompilerPass(new CheckConfiguredServicesPass());
         $container->addCompilerPass(new CheckSessionStoragePass());
+        $container->addCompilerPass(new FragmentPathPass());
     }
 
     /**
@@ -89,7 +91,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, trusted_header: array{name: non-empty-string|null, trusted_proxies_only: bool}, redirect: array{methods: non-empty-list<string>, cache_control: string|null, mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, route_defaults: array{redirect: non-empty-string, remember: non-empty-string}, http_cache: array{vary: bool, private_when_remembering: bool}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, trusted_header: array{name: non-empty-string|null, trusted_proxies_only: bool}, redirect: array{methods: non-empty-list<string>, cache_control: string|null, mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, route_defaults: array{redirect: non-empty-string, remember: non-empty-string}, http_cache: array{vary: bool, private_when_remembering: bool}, skip: array{fragments: bool, paths: list<string>}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -99,6 +101,12 @@ final class DeviceViewBundle extends AbstractBundle
         ;
         $builder->getDefinition('device_view.device_view')
             ->replaceArgument(4, $tabletAsMobile && DeviceType::Tablet === $defaultView ? DeviceType::Mobile : $defaultView)
+        ;
+
+        // FragmentPathPass replaces /_fragment with framework.fragments.path when it is defined
+        $builder->getDefinition(FragmentPathPass::LISTENER)
+            ->replaceArgument(0, $config['skip']['fragments'] ? '/_fragment' : null)
+            ->replaceArgument(1, $config['skip']['paths'])
         ;
 
         $trustedHeader = $config['trusted_header'];
