@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\Functional;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\BeforeRememberEvent;
 use DeviceViewBundle\Remember\SessionStorage;
+use DeviceViewBundle\Tests\App\Event\BeforeRememberListener;
 use DeviceViewBundle\Tests\App\TestLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -128,6 +130,24 @@ final class SessionTest extends TestCase
 
         self::assertSame(302, $response->getStatusCode());
         self::assertSame('/no-remember', $response->headers->get('Location'));
+        $this->assertNoSessionStarted($response);
+    }
+
+    #[Group('EVT-REM-08')]
+    public function testACancelledRememberStartsNoSession(): void
+    {
+        $this->bootWithSession();
+        $listener = $this->service(BeforeRememberListener::class);
+        self::assertInstanceOf(BeforeRememberListener::class, $listener);
+        $listener->onEvent = static function (BeforeRememberEvent $event): void {
+            $event->cancel();
+        };
+
+        $response = $this->handle(self::request('/view?device_view=mobile'));
+
+        self::assertSame(302, $response->getStatusCode());
+        self::assertSame('/view', $response->headers->get('Location'));
+        self::assertCount(1, $listener->events);
         $this->assertNoSessionStarted($response);
     }
 

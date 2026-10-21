@@ -130,6 +130,8 @@ final class DeviceViewBundle extends AbstractBundle
             ->replaceArgument(2, SwitchTarget::from($switch['target']))
             ->replaceArgument(3, $switch['status'])
             ->replaceArgument(4, $config['redirect']['cache_control'])
+            ->replaceArgument(11, $tabletAsMobile)
+            ->replaceArgument(12, 'none' !== $config['remember']['storage'])
         ;
 
         $remember = $config['remember'];

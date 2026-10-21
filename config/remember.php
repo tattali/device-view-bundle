@@ -16,7 +16,8 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 // Remembering the view: the built-in storages, the reader of the storage (a step of the
-// resolver, see resolver.php), the remember policy and the listener that writes on the response.
+// resolver, see resolver.php), the remember policy and the listener that writes on the response,
+// after BeforeRememberEvent.
 // DeviceViewBundle::loadExtension() sets the arguments that come from the configuration, and
 // device_view.storage, an alias of the storage remember.storage names.
 return static function (ContainerConfigurator $container): void {
@@ -63,6 +64,7 @@ return static function (ContainerConfigurator $container): void {
                 // set only when consent.provider is
                 new Reference('device_view.consent_checker', ContainerInterface::NULL_ON_INVALID_REFERENCE),
                 new Reference('device_view.route_defaults'),
+                new Reference('event_dispatcher'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::RESPONSE, 'method' => 'onKernelResponse', 'priority' => 0])
     ;

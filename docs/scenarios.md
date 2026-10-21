@@ -711,16 +711,23 @@ parameter is ignored), redirects, remembers or expires a stored value.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| EVT-REM-01 | Switch getters | a recording listener | `GET /view?device_view=mobile` | `getTrigger()` `switch`, `getView()` Mobile, `getConsent()` null, `getLifetime()` 0 | planned |
-| EVT-REM-02 | Detected getters | `remember: { detected_view: true }`, a recording listener | `GET /view`, `UA=iphone` | `getTrigger()` `detected`, `getView()` Mobile | planned |
-| EVT-REM-03 | Consent getters | `TAC`, a recording listener | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `getConsent()` true, `getLifetime()` 31536000 | planned |
-| EVT-REM-04 | `cancel()` | a listener calling `cancel()` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `Set-Cookie` | planned |
-| EVT-REM-05 | `setLifetime()` | a listener calling `setLifetime(3600)` | `GET /view?device_view=mobile` | `Set-Cookie: SC(mobile, 3600)` | planned |
-| EVT-REM-06 | `setLifetime(0)` makes a session cookie | `TAC`, a listener calling `setLifetime(0)` | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `Set-Cookie: SC(mobile)` | planned |
-| EVT-REM-07 | Not dispatched when the table says no | `TAC`, `remember: { detected_view: true }`, a counting listener | `GET /view`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 0 calls | planned |
-| EVT-REM-08 | Cancelling a session write | `remember: { storage: session }`, a listener calling `cancel()` | `GET /view?device_view=mobile` | the session is not started | planned |
-| EVT-REM-09 | Negative lifetime | a listener calling `setLifetime(-1)` | `GET /view?device_view=mobile` | `InvalidArgumentException`, message `The remember lifetime must be 0 or more seconds; got -1.` | planned |
-| EVT-REM-10 | Event name | a listener on `BeforeRememberEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::BEFORE_REMEMBER`) | `GET /view?device_view=mobile` | the listener is called | planned |
+| EVT-REM-01 | Switch getters | a recording listener | `GET /view?device_view=mobile` | `getTrigger()` `switch`, `getView()` Mobile, `getConsent()` null, `getLifetime()` 0 | active |
+| EVT-REM-02 | Detected getters | `remember: { detected_view: true }`, a recording listener | `GET /view`, `UA=iphone` | `getTrigger()` `detected`, `getView()` Mobile | active |
+| EVT-REM-03 | Consent getters | `TAC`, a recording listener | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `getConsent()` true, `getLifetime()` 31536000 | active |
+| EVT-REM-04 | `cancel()` | a listener calling `cancel()` | `GET /view?device_view=mobile` | 302, `Location: /view`, no `Set-Cookie` | active |
+| EVT-REM-05 | `setLifetime()` | a listener calling `setLifetime(3600)` | `GET /view?device_view=mobile` | `Set-Cookie: SC(mobile, 3600)` | active |
+| EVT-REM-06 | `setLifetime(0)` makes a session cookie | `TAC`, a listener calling `setLifetime(0)` | `GET /view?device_view=mobile`, `Cookie: tarteaucitron=!device_view=true` | `Set-Cookie: SC(mobile)` | active |
+| EVT-REM-07 | Not dispatched when the table says no | `TAC`, `remember: { detected_view: true }`, a counting listener | `GET /view`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=false` | 0 calls | active |
+| EVT-REM-08 | Cancelling a session write | `remember: { storage: session }`, a listener calling `cancel()` | `GET /view?device_view=mobile` | the session is not started | active |
+| EVT-REM-09 | Negative lifetime | a listener calling `setLifetime(-1)` | `GET /view?device_view=mobile` | `InvalidArgumentException`, message `The remember lifetime must be 0 or more seconds; got -1.` | active |
+| EVT-REM-10 | Event name | a listener on `BeforeRememberEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::BEFORE_REMEMBER`) | `GET /view?device_view=mobile` | the listener is called | active |
+| EVT-REM-11 | A cancelled remember still expires a forged value | `remember: { detected_view: true }`, a listener calling `cancel()` | `GET /cacheable`, `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, `Set-Cookie: SC-DEL`, `Cache-Control: max-age=3600, private`, 1 call | active |
+| EVT-REM-12 | A cancelled remember forces nothing private | `remember: { detected_view: true }`, a listener calling `cancel()` | `GET /cacheable`, `UA=iphone` | 200 `"mobile detector"`, no `Set-Cookie`, `Cache-Control: max-age=3600, public`, 1 call | active |
+| EVT-REM-13 | A cancelled switch remember causes no loop | `M`, `D`, a listener calling `cancel()` | `GET https://m.example.com/view`, `UA=iphone`, `Cookie: device_view=desktop`; then `GET https://www.example.com/view?device_view=desktop`, `UA=iphone`, no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`, 0 calls; second response: 200 `"desktop switch"`, no `Location`, no `Set-Cookie`, 1 call (`switch`, Desktop, consent null, lifetime 0) | active |
+| EVT-REM-14 | Dispatched once for a switch redirected on the host of its view | `M`, `D`, a listener calling `setLifetime(3600)` | `GET https://www.example.com/view?device_view=desktop`, `UA=iphone` | 302, `Location: /view`, `Set-Cookie: SCS(desktop, 3600)`, 1 call | active |
+| EVT-REM-15 | The switch listener's event has the consent | `TAC`, `M`, `D`, a recording listener | `GET https://www.example.com/view?device_view=desktop`, `UA=iphone`, `Cookie: tarteaucitron=!device_view=true` | 302, `Location: /view`, `Set-Cookie: SCS(desktop, 31536000)`, 1 call (`switch`, Desktop, consent true, lifetime 31536000) | active |
+| EVT-REM-16 | The switch listener dispatches nothing without storage | `M`, `D`, `remember: { storage: none }`, a counting listener | `GET https://www.example.com/view?device_view=desktop`, `UA=iphone` | 302, `Location: /view`, no `Set-Cookie`, 0 calls | active |
+| EVT-REM-17 | The switch listener's event has the view after `tablet_as_mobile` | `tablet_as_mobile: true`, `M`, `D`, a recording listener | `GET https://m.example.com/view?device_view=tablet`, `UA=iphone` | 302, `Location: /view`, `Set-Cookie: SCS(mobile)`, 1 call (`switch`, Mobile, consent null, lifetime 0) | active |
 
 ## 19. Twig (TWIG), design.md section 10
 
@@ -1063,6 +1070,36 @@ the area; if the owner disagrees, the rows change before they become active.
   nothing never reads the consent cookie (REM-26).
 - A configured host with its scheme's default port (`https://m.example.com:443`) matches the
   host without a port, and the port is left out of the `Location` (RED-14, REG-07).
+- `BeforeRememberEvent` is dispatched on the response, right before the view is stored (or
+  earlier by the switch listener, in the one case below), only when the decision table says it
+  is stored: never when the table, `DeviceView::setRemember(false)`
+  or the remember route default stop the write, on a skipped request, or with `storage: none`
+  (EVT-REM-07). `getView()` is the view that is stored, after `tablet_as_mobile`; `getConsent()`
+  is the consent the lifetime came from (`DeviceView::setConsent()`, else the checker, `null`
+  without a provider). `cancel()` does not stop the propagation, and `isCancelled()` tells later
+  listeners. A cancelled remember stores nothing and forces nothing private (EVT-REM-04,
+  EVT-REM-08, EVT-REM-12), but a forged stored value is still expired, as with the route default
+  `false` (EVT-REM-11). A lifetime set by a listener is used as is, 0 giving a browser-session cookie (EVT-REM-05,
+  EVT-REM-06).
+- The switch listener reads `BeforeRememberEvent` for one case only: a switch it would redirect
+  to the page without the parameter while the switched view is served on the current host (views
+  on their own hosts). There it dispatches the event on `kernel.request`, and a cancelled
+  remember keeps the switch on its page, as `remember.on_switch: false` does, so the loop of
+  REG-21 cannot come back (EVT-REM-13). The redirect answers the request, so no controller changes
+  the view or the consent before the write, and the response uses that event without dispatching
+  it again (EVT-REM-14). When a `BeforeRedirectEvent` listener cancels that redirect and a
+  controller then changes the view or the consent, the response dispatches the event again with
+  the values it writes. Elsewhere the event is dispatched on the response only, so cancelling the
+  remember of a switch keeps its redirect (EVT-REM-04). `DeviceView::setRemember(false)` called
+  before the switch listener also keeps the switch on its page there. The switch listener's
+  event has the consent of `consent.provider` and the view after `tablet_as_mobile`, as the
+  response would, and is not dispatched without a storage (EVT-REM-15 to EVT-REM-17). The
+  response reuses that event whenever the view and the consent it writes are the same, so two
+  rare cases get no new dispatch, after a `BeforeRedirectEvent` listener cancels the redirect:
+  a controller that calls `DeviceView::setView()` with the same view and `remember: true` gets
+  the event already dispatched, cancelled or with its lifetime changed; and a controller that
+  calls `DeviceView::setRemember(false)` stops the write although a listener has already seen
+  the event.
 - `BeforeRedirectEvent::setStatus()` with a status outside 301, 302, 303, 307 and 308, and
   `BeforeRememberEvent::setLifetime()` with a negative value, throw `InvalidArgumentException`
   (EVT-RED-07, EVT-REM-09).

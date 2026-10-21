@@ -42,6 +42,10 @@ return static function (ContainerConfigurator $container): void {
                 new Reference('device_view.remember_policy'),
                 new Reference('device_view.route_defaults'),
                 new Reference('event_dispatcher'),
+                // set only when consent.provider is
+                new Reference('device_view.consent_checker', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+                new AbstractArgument('tablet_as_mobile'),
+                new AbstractArgument('whether remember.storage is not none'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 31])
     ;
