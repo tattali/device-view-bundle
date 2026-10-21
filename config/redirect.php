@@ -11,7 +11,8 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 // The redirect of each view to the host it is served on: the policy that decides it, also asked
-// by the switch listener (see switch.php), and the listener of the device redirect.
+// by the switch listener (see switch.php), and the listener of the device redirect, which
+// dispatches BeforeRedirectEvent.
 // DeviceViewBundle::loadExtension() sets the arguments that come from the configuration.
 return static function (ContainerConfigurator $container): void {
     $container->services()
@@ -32,6 +33,7 @@ return static function (ContainerConfigurator $container): void {
                 new AbstractArgument('redirect.cache_control'),
                 new Reference('device_view.switch_parameter'),
                 new Reference('device_view.route_defaults'),
+                new Reference('event_dispatcher'),
             ])
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 30])
     ;

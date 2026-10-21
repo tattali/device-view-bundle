@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace DeviceViewBundle\EventListener;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\BeforeRedirectEvent;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Redirect\RedirectPolicy;
+use DeviceViewBundle\Redirect\RedirectReason;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\Routing\RouteDefaults;
 use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Sends a main request to the host of its view, on kernel.request at priority 30, after the
@@ -22,15 +25,17 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * served on this host in the switch parameter, or when no view has its redirect enabled: the view
  * then stays unresolved until something asks for it. Otherwise the listener resolves the view,
  * and the redirect policy decides whether the request goes to the host of that view, with the
- * action the route default sets, if any. The redirect gets redirect.cache_control.
+ * action the route default sets, if any. BeforeRedirectEvent, with the reason device, may then
+ * change the URL or the status, or cancel the redirect. The redirect gets redirect.cache_control.
  */
 final readonly class DeviceRedirectListener
 {
     /**
-     * @param list<string>         $methods         the request methods the device redirects apply to, upper case
-     * @param string|null          $cacheControl    the Cache-Control of the redirect, or null to leave it alone
-     * @param SwitchParameter|null $switchParameter the switch parameter, which tells the view a redirect of the bundle carried here
-     * @param RouteDefaults|null   $routeDefaults   the reader of the route defaults; without it, routes override nothing
+     * @param list<string>                  $methods         the request methods the device redirects apply to, upper case
+     * @param string|null                   $cacheControl    the Cache-Control of the redirect, or null to leave it alone
+     * @param SwitchParameter|null          $switchParameter the switch parameter, which tells the view a redirect of the bundle carried here
+     * @param RouteDefaults|null            $routeDefaults   the reader of the route defaults; without it, routes override nothing
+     * @param EventDispatcherInterface|null $dispatcher      dispatches BeforeRedirectEvent; without it, no event
      */
     public function __construct(
         private RedirectPolicy $policy,
@@ -39,6 +44,7 @@ final readonly class DeviceRedirectListener
         private ?string $cacheControl = 'no-store, private',
         private ?SwitchParameter $switchParameter = null,
         private ?RouteDefaults $routeDefaults = null,
+        private ?EventDispatcherInterface $dispatcher = null,
     ) {
     }
 
@@ -74,9 +80,13 @@ final readonly class DeviceRedirectListener
             return;
         }
 
-        // BeforeRedirectEvent, with the reason "device", is dispatched here once it exists: it
-        // may change the URL or the status, or cancel the redirect
-        $response = new RedirectResponse($redirect->url, $redirect->status);
+        $beforeRedirect = new BeforeRedirectEvent(RedirectReason::Device, $redirect->url, $redirect->status);
+        $this->dispatcher?->dispatch($beforeRedirect);
+        if ($beforeRedirect->isCancelled()) {
+            return;
+        }
+
+        $response = new RedirectResponse($beforeRedirect->getUrl(), $beforeRedirect->getStatus());
         if (null !== $this->cacheControl) {
             $response->headers->set('Cache-Control', $this->cacheControl);
         }

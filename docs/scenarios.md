@@ -698,14 +698,14 @@ parameter is ignored), redirects, remembers or expires a stored value.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| EVT-RED-01 | Switch redirect getters | a recording listener | `GET /view?device_view=mobile` | `getReason()` `switch`, `getUrl()` `/view`, `getStatus()` 302 | planned |
-| EVT-RED-02 | Device redirect getters | `M`, a recording listener | `GET http://www.example.com/blog/post`, `UA=iphone` | `getReason()` `device`, `getUrl()` `https://m.example.com/blog/post?device_view=mobile`, `getStatus()` 302 | planned |
-| EVT-RED-03 | `setUrl()` | a listener calling `setUrl('/elsewhere')` | `GET /view?device_view=mobile` | 302, `Location: /elsewhere` | planned |
-| EVT-RED-04 | `setStatus()` | `M`, a listener calling `setStatus(303)` | `GET http://www.example.com/`, `UA=iphone` | 303 | planned |
-| EVT-RED-05 | Cancelling a switch redirect keeps the switch | a listener calling `cancel()` | `GET /view?device_view=mobile` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)`, no `Location` | planned |
-| EVT-RED-06 | Cancelling a device redirect | `M`, a listener calling `cancel()` | `GET http://www.example.com/view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]`, no `Location` | planned |
-| EVT-RED-07 | Invalid status | a listener calling `setStatus(200)` | `GET /view?device_view=mobile` | `InvalidArgumentException`, message `The redirect status must be one of 301, 302, 303, 307, 308; got 200.` | planned |
-| EVT-RED-08 | Event name | a listener on `BeforeRedirectEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::BEFORE_REDIRECT`) | `GET /view?device_view=mobile` | the listener is called | planned |
+| EVT-RED-01 | Switch redirect getters | a recording listener | `GET /view?device_view=mobile` | `getReason()` `switch`, `getUrl()` `/view`, `getStatus()` 302 | active |
+| EVT-RED-02 | Device redirect getters | `M`, a recording listener | `GET http://www.example.com/blog/post`, `UA=iphone` | `getReason()` `device`, `getUrl()` `https://m.example.com/blog/post?device_view=mobile`, `getStatus()` 302 | active |
+| EVT-RED-03 | `setUrl()` | a listener calling `setUrl('/elsewhere')` | `GET /view?device_view=mobile` | 302, `Location: /elsewhere` | active |
+| EVT-RED-04 | `setStatus()` | `M`, a listener calling `setStatus(303)` | `GET http://www.example.com/`, `UA=iphone` | 303 | active |
+| EVT-RED-05 | Cancelling a switch redirect keeps the switch | a listener calling `cancel()` | `GET /view?device_view=mobile` | 200 `"mobile switch"`, `Set-Cookie: SC(mobile)`, no `Location` | active |
+| EVT-RED-06 | Cancelling a device redirect | `M`, a listener calling `cancel()` | `GET http://www.example.com/view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]`, no `Location` | active |
+| EVT-RED-07 | Invalid status | a listener calling `setStatus(200)` | `GET /view?device_view=mobile` | `InvalidArgumentException`, message `The redirect status must be one of 301, 302, 303, 307, 308; got 200.` | active |
+| EVT-RED-08 | Event name | a listener on `BeforeRedirectEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::BEFORE_REDIRECT`) | `GET /view?device_view=mobile` | the listener is called | active |
 
 ### BeforeRememberEvent (EVT-REM)
 
@@ -1031,7 +1031,15 @@ the area; if the owner disagrees, the rows change before they become active.
   it is absent or invalid, and is listed in `Vary` under its configured name (TH-06, VAL-13). An
   invalid value is logged at debug level and nothing is expired: the request holds it, not a
   storage. A header name is an RFC 9110 token (CFG-44).
-- Cancelling a switch redirect keeps the switched view and its remember (EVT-RED-05).
+- Cancelling a switch redirect keeps the switched view and its remember (EVT-RED-05): the request
+  then goes on as with `switch.target: none`, so when the switched view is served on another
+  host, the device redirect still sends it there, with its own `BeforeRedirectEvent` (reason
+  `device`), which a listener may cancel too.
+- `BeforeRedirectEvent::getReason()` returns the `RedirectReason` enum (`switch` or `device`) on
+  lines with enums; `cancel()` does not stop the propagation, so later listeners see the event
+  cancelled. The redirect keeps `redirect.cache_control` whatever a listener changes
+  (EVT-RED-03, EVT-RED-04). The event is dispatched only when the bundle is about to redirect: a
+  switch with `target: none`, or that stays without a redirect, dispatches none.
 - Matomo with `client_hints: true` passes and varies on `Sec-CH-UA`, `Sec-CH-UA-Arch`,
   `Sec-CH-UA-Bitness`, `Sec-CH-UA-Full-Version`, `Sec-CH-UA-Full-Version-List`,
   `Sec-CH-UA-Mobile`, `Sec-CH-UA-Model`, `Sec-CH-UA-Platform` and `Sec-CH-UA-Platform-Version`

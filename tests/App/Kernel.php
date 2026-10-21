@@ -8,9 +8,11 @@ use DeviceViewBundle\Consent\ConsentCheckerInterface;
 use DeviceViewBundle\Detector\DeviceDetectorInterface;
 use DeviceViewBundle\DeviceView;
 use DeviceViewBundle\DeviceViewBundle;
+use DeviceViewBundle\Event\BeforeRedirectEvent;
 use DeviceViewBundle\Event\ViewResolvedEvent;
 use DeviceViewBundle\Remember\ViewStorageInterface;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
+use DeviceViewBundle\Tests\App\Event\BeforeRedirectListener;
 use DeviceViewBundle\Tests\App\Event\ViewResolvedListener;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -237,6 +239,12 @@ final class Kernel extends BaseKernel
             ->public()
             ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 2048])
             ->tag('kernel.event_listener', ['event' => ViewResolvedEvent::class, 'method' => 'onViewResolved'])
+        ;
+        $services
+            ->set(BeforeRedirectListener::class)
+            ->public()
+            ->tag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onKernelRequest', 'priority' => 2048])
+            ->tag('kernel.event_listener', ['event' => BeforeRedirectEvent::class, 'method' => 'onBeforeRedirect'])
         ;
         foreach ($this->services as $id => $class) {
             $services->set($id, $class)->public();
