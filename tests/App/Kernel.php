@@ -16,6 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -60,6 +61,11 @@ final class Kernel extends BaseKernel
         'test.consent_checker_interface' => ConsentCheckerInterface::class,
     ];
 
+    /**
+     * Every Request::HEADER_* bit.
+     */
+    private const int TRUSTED_HEADERS = Request::HEADER_FORWARDED | Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_PORT | Request::HEADER_X_FORWARDED_PREFIX;
+
     private static ?string $runDir = null;
 
     private readonly string $configHash;
@@ -73,6 +79,14 @@ final class Kernel extends BaseKernel
      * @var array{env: mixed, server: mixed, getenv: string|false}|null
      */
     private ?array $shellVerbosityBeforeBoot = null;
+
+    /**
+     * The trusted proxies and headers of Request before boot, which framework.trusted_proxies
+     * sets for the whole process; null when not booted.
+     *
+     * @var array{proxies: array<string>, headers: int}|null
+     */
+    private ?array $trustedProxiesBeforeBoot = null;
 
     /**
      * @param array<string, mixed>                       $deviceViewConfig the device_view configuration
@@ -102,6 +116,7 @@ final class Kernel extends BaseKernel
                 'server' => $_SERVER['SHELL_VERBOSITY'] ?? null,
                 'getenv' => getenv('SHELL_VERBOSITY'),
             ];
+            $this->trustedProxiesBeforeBoot = ['proxies' => Request::getTrustedProxies(), 'headers' => Request::getTrustedHeaderSet()];
         }
 
         parent::boot();
@@ -113,6 +128,7 @@ final class Kernel extends BaseKernel
      * On Symfony 8.0, FrameworkBundle::boot() registers the ErrorHandler and nothing removes
      * it, so PHPUnit marks the test risky. A debug kernel sets SHELL_VERBOSITY to 3 for the
      * whole process, so every kernel booted after it would print its info logs.
+     * framework.trusted_proxies sets the trusted proxies of every later Request too.
      */
     #[\Override]
     public function shutdown(): void
@@ -128,6 +144,11 @@ final class Kernel extends BaseKernel
             self::restore($_SERVER, $before['server']);
             putenv(false === $before['getenv'] ? 'SHELL_VERBOSITY' : 'SHELL_VERBOSITY='.$before['getenv']);
             $this->shellVerbosityBeforeBoot = null;
+        }
+
+        if (null !== $before = $this->trustedProxiesBeforeBoot) {
+            Request::setTrustedProxies($before['proxies'], $before['headers'] & self::TRUSTED_HEADERS);
+            $this->trustedProxiesBeforeBoot = null;
         }
     }
 

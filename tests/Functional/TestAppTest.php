@@ -53,6 +53,18 @@ final class TestAppTest extends TestCase
         self::assertSame($before, [getenv('SHELL_VERBOSITY'), $_ENV['SHELL_VERBOSITY'] ?? null, $_SERVER['SHELL_VERBOSITY'] ?? null]);
     }
 
+    public function testAKernelLeavesTheTrustedProxiesAsItFoundThem(): void
+    {
+        $before = [Request::getTrustedProxies(), Request::getTrustedHeaderSet()];
+        $this->kernel = new Kernel(framework: ['trusted_proxies' => '192.0.2.1', 'trusted_headers' => ['x-forwarded-host']]);
+        $this->kernel->boot();
+        self::assertSame([['192.0.2.1'], Request::HEADER_X_FORWARDED_HOST], [Request::getTrustedProxies(), Request::getTrustedHeaderSet()]);
+
+        $this->kernel->shutdown();
+
+        self::assertSame($before, [Request::getTrustedProxies(), Request::getTrustedHeaderSet()]);
+    }
+
     #[Group('CFG-01')]
     public function testTheConfigurationRootIsDeviceView(): void
     {
