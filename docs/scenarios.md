@@ -157,9 +157,9 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | `is_mobile_only` | `/is-mobile-only` | Body `mobile only`; condition `is_device_view('mobile')`. |
 | `m_only` | `/m-only` | Body `m only`; condition `device_view() == 'm'`. |
 | `twig` | `/twig` | Renders `views.html.twig` (below); the body is the trimmed output. |
-| `profiler_stub` | `/_profiler/abc` | Same as `view`. Only in kernels without WebProfilerBundle (area SKIP), so the default skip paths can be checked on a route that exists. |
+| `profiler_stub` | `/_profiler/abc` | Same as `view`. In every kernel (area SKIP), so the default skip paths can be checked on a route that exists. |
 | `wdt_stub` | `/_wdt/abc` | Same as `profiler_stub`. |
-| `fragment_stub` | `/_fragment` | Same as `view`. Only in kernels without `framework.fragments` (SKIP-04). |
+| `fragment_stub` | `/_fragment` | Same as `view`. In every kernel (SKIP-04); with `framework.fragments` on, the FragmentListener sets `_controller` first, so a request to the fragment path never reaches it. |
 
 `views.html.twig`:
 
