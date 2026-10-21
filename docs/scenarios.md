@@ -1045,9 +1045,9 @@ the area; if the owner disagrees, the rows change before they become active.
   `secure` (CK-16). `same_site: none` with `secure: false` is a configuration error (CFG-26).
 - A library detector named in `detector.chain` whose package is missing fails the container
   build with its own message, which names the chain (CFG-54, CFG-55).
-- `skip.paths` are regular expressions without delimiters, matched with `{` and `}` as
-  delimiters against `rawurldecode()` of the path info, as the firewall's `path` and the router
-  decode it, so an encoded path is skipped like the path it routes to (SKIP-09, CFG-43). The
+- `skip.paths` are regular expressions without delimiters, matched as the firewall's `path`
+  matches them: with `{` and `}` as delimiters and the `s` modifier, against `rawurldecode()` of
+  the path info, as the firewall's `path` and the router decode it, so an encoded path is skipped like the path it routes to (SKIP-09, CFG-43). The
   fragment path is compared to the same decoded path info, exactly, as Symfony's FragmentListener
   does (SKIP-01, SKIP-03). Setting `skip.paths` replaces the default list (SKIP-07).
 - The test app adds stub routes on the skipped paths (`profiler_stub`, `wdt_stub`,

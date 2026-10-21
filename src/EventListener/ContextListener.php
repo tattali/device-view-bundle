@@ -15,7 +15,8 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * of the skip.paths regular expressions: such a request still resolves its view when asked, but
  * never switches, redirects, remembers nor expires a stored value. The path info is decoded with
  * rawurldecode(), as the router and the FragmentListener decode it, so an encoded path is
- * skipped like the path it routes to.
+ * skipped like the path it routes to. The expressions are matched as the firewall's path matches
+ * them: with the delimiters { and } and the s modifier.
  *
  * Nothing is resolved here: the view is resolved the first time something asks for it.
  */
@@ -40,7 +41,7 @@ final readonly class ContextListener
         $request = $event->getRequest();
         $path = rawurldecode($request->getPathInfo());
         $skipped = $path === $this->fragmentPath
-            || array_any($this->skipPaths, static fn (string $pattern): bool => 1 === preg_match('{'.$pattern.'}', $path));
+            || array_any($this->skipPaths, static fn (string $pattern): bool => 1 === preg_match('{'.$pattern.'}s', $path));
 
         $request->attributes->set(DeviceViewContext::ATTRIBUTE, new DeviceViewContext($skipped));
     }

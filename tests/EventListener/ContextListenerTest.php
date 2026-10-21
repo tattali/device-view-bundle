@@ -78,6 +78,18 @@ final class ContextListenerTest extends TestCase
         self::assertTrue($context->skipped);
     }
 
+    public function testADotMatchesADecodedNewlineAsInTheFirewallPath(): void
+    {
+        // Symfony's PathRequestMatcher matches with {...}s, so a dot matches a newline
+        $request = Request::create('http://localhost/api%0Athing');
+
+        new ContextListener(null, ['^/api.thing$'])->onKernelRequest(new RequestEvent(new Kernel(), $request, HttpKernelInterface::MAIN_REQUEST));
+
+        $context = $request->attributes->get('_device_view');
+        self::assertInstanceOf(DeviceViewContext::class, $context);
+        self::assertTrue($context->skipped);
+    }
+
     public function testWithoutAFragmentPathTheFragmentPathIsNotSkipped(): void
     {
         $request = Request::create('http://localhost/_fragment');

@@ -394,8 +394,8 @@ return static function (DefinitionConfigurator $definition): void {
                             ->always(static function (array $paths): array {
                                 /** @var list<string> $paths the string prototype rejects anything else */
                                 foreach ($paths as $path) {
-                                    // the delimiters ContextListener matches with
-                                    if (false === @preg_match('{'.$path.'}', '')) {
+                                    // the delimiters and modifier ContextListener matches with
+                                    if (false === @preg_match('{'.$path.'}s', '')) {
                                         throw new InvalidArgumentException(sprintf('device_view.skip.paths contains an invalid regular expression: "%s".', $path));
                                     }
                                 }
