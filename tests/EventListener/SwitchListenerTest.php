@@ -6,14 +6,18 @@ namespace DeviceViewBundle\Tests\EventListener;
 
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Event\BeforeRedirectEvent;
+use DeviceViewBundle\Event\BeforeRememberEvent;
 use DeviceViewBundle\EventListener\SwitchListener;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Redirect\RedirectPolicy;
 use DeviceViewBundle\Redirect\RedirectReason;
 use DeviceViewBundle\Remember\RememberPolicy;
+use DeviceViewBundle\Remember\RememberTrigger;
 use DeviceViewBundle\Resolver\Step\SwitchStep;
 use DeviceViewBundle\Resolver\ViewResolver;
 use DeviceViewBundle\Routing\RouteDefaults;
+use DeviceViewBundle\Tests\App\Consent\CountingConsentChecker;
+use DeviceViewBundle\Tests\App\Consent\HeaderConsent;
 use DeviceViewBundle\Tests\App\Kernel;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewNames;
@@ -242,6 +246,125 @@ final class SwitchListenerTest extends TestCase
         self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'without the reader, routes override nothing');
     }
 
+    /**
+     * A remembered switch arriving on the host of its view asks BeforeRememberEvent before its
+     * redirect: a cancelled remember keeps the switch on its page, as remember.on_switch false.
+     */
+    public function testACancelledRememberKeepsTheSwitchOnTheHostOfItsView(): void
+    {
+        $resolver = new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))]);
+        [$request, $context] = self::request('https://m.example.com/view?device_view=mobile');
+        $event = self::event($request);
+        $events = [];
+        $dispatcher = self::rememberDispatcher($events, static function (BeforeRememberEvent $remember): void {
+            $remember->cancel();
+        });
+        $dispatcher->addListener(BeforeRedirectEvent::class, static function (): void {
+            self::fail('No redirect, no BeforeRedirectEvent.');
+        });
+
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy(), dispatcher: $dispatcher)->onKernelRequest($event);
+
+        self::assertNull($event->getResponse(), 'a redirect to /view would forget the switch');
+        self::assertTrue($context->switched);
+        self::assertCount(1, $events);
+        self::assertSame(RememberTrigger::Switch, $events[0]->getTrigger());
+        self::assertSame(DeviceType::Mobile, $events[0]->getView());
+        self::assertNull($events[0]->getConsent());
+        self::assertSame(0, $events[0]->getLifetime());
+        self::assertSame($events[0], $context->beforeRemember, 'the remember listener reads it');
+    }
+
+    public function testTheEventOfTheSwitchHasTheViewAndConsentOfTheWrite(): void
+    {
+        $resolver = new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))], tabletAsMobile: true);
+        $checker = new CountingConsentChecker(new HeaderConsent());
+        $listener = static fn (EventDispatcher $dispatcher): SwitchListener => new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy(lifetime: 60, consentedLifetime: 3600, consentProvider: true), dispatcher: $dispatcher, consentChecker: $checker, tabletAsMobile: true);
+
+        [$request, $context] = self::request('https://m.example.com/view?device_view=tablet');
+        $request->headers->set('X-Consent', 'yes');
+        $event = self::event($request);
+        $events = [];
+        $listener(self::rememberDispatcher($events))->onKernelRequest($event);
+
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('/view', $response->getTargetUrl(), 'a remember that is not cancelled keeps the redirect');
+        self::assertCount(1, $events);
+        self::assertSame(DeviceType::Mobile, $events[0]->getView(), 'the view that is written, after tablet_as_mobile');
+        self::assertTrue($events[0]->getConsent());
+        self::assertSame(3600, $events[0]->getLifetime());
+        self::assertFalse($events[0]->isCancelled());
+        self::assertSame($events[0], $context->beforeRemember);
+        self::assertSame(1, $checker->calls);
+
+        [$overridden, $context] = self::request('https://m.example.com/view?device_view=tablet');
+        $overridden->headers->set('X-Consent', 'yes');
+        $context->setConsent(false);
+        $events = [];
+        $listener(self::rememberDispatcher($events))->onKernelRequest(self::event($overridden));
+        self::assertCount(1, $events);
+        self::assertFalse($events[0]->getConsent(), 'DeviceView::setConsent() wins over the checker');
+        self::assertSame(60, $events[0]->getLifetime());
+        self::assertSame(1, $checker->calls, 'the checker is not asked');
+    }
+
+    public function testTabletAsMobileMapsOnlyATabletSwitch(): void
+    {
+        $redirectPolicy = new RedirectPolicy(
+            [
+                'tablet' => ['host' => 'https://t.example.com', 'action' => RedirectAction::Redirect, 'status' => 301, 'keep_query' => true],
+                'desktop' => ['host' => 'https://www.example.com', 'action' => RedirectAction::Redirect, 'status' => 301, 'keep_query' => true],
+            ],
+            new ViewNames(),
+            new SwitchUrlGenerator(),
+        );
+        $resolver = new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))]);
+        $events = [];
+
+        [$tablet] = self::request('https://t.example.com/view?device_view=tablet');
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: $redirectPolicy, resolver: $resolver, rememberPolicy: new RememberPolicy(), dispatcher: self::rememberDispatcher($events))->onKernelRequest(self::event($tablet));
+        self::assertCount(1, $events);
+        self::assertSame(DeviceType::Tablet, $events[0]->getView(), 'tablet_as_mobile is off by default');
+
+        $events = [];
+        [$desktop] = self::request('https://www.example.com/view?device_view=desktop');
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: $redirectPolicy, resolver: $resolver, rememberPolicy: new RememberPolicy(), dispatcher: self::rememberDispatcher($events), tabletAsMobile: true)->onKernelRequest(self::event($desktop));
+        self::assertCount(1, $events);
+        self::assertSame(DeviceType::Desktop, $events[0]->getView());
+    }
+
+    public function testNoRememberEventWhenNothingIsRemembered(): void
+    {
+        $resolver = new ViewResolver([new SwitchStep(new SwitchParameter(new ViewNames()))]);
+        $events = [];
+        $dispatcher = self::rememberDispatcher($events);
+
+        [$withoutStorage, $context] = self::request('https://m.example.com/view?device_view=mobile');
+        $event = self::event($withoutStorage);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy(), dispatcher: $dispatcher, hasStorage: false)->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'without a storage, the switch redirects as before');
+        self::assertNull($context->beforeRemember);
+
+        [$withoutPolicy] = self::request('https://m.example.com/view?device_view=mobile');
+        $event = self::event($withoutPolicy);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, dispatcher: $dispatcher)->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'without a remember policy, the switch is taken as remembered');
+
+        [$rememberOff, $context] = self::request('https://m.example.com/view?device_view=mobile');
+        $context->setRemember(false);
+        $event = self::event($rememberOff);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy(), dispatcher: $dispatcher)->onKernelRequest($event);
+        self::assertNull($event->getResponse(), 'DeviceView::setRemember(false) keeps the switch on its page');
+
+        [$elsewhere] = self::request('https://m.example.com/view?device_view=desktop');
+        $event = self::event($elsewhere);
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy(), dispatcher: $dispatcher)->onKernelRequest($event);
+        self::assertInstanceOf(RedirectResponse::class, $event->getResponse());
+
+        self::assertSame([], $events, 'the response dispatches the event of these switches');
+    }
+
     public function testBeforeRedirectEventChangesTheRedirect(): void
     {
         [$request] = self::request('/view?a=1&device_view=mobile');
@@ -292,6 +415,26 @@ final class SwitchListenerTest extends TestCase
         new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), SwitchTarget::None, dispatcher: $dispatcher)->onKernelRequest(self::event($request));
 
         self::assertTrue($dispatcher->hasListeners(BeforeRedirectEvent::class));
+    }
+
+    /**
+     * A dispatcher whose only BeforeRememberEvent listener adds each event to $events, then calls
+     * $onEvent.
+     *
+     * @param list<BeforeRememberEvent>                  $events
+     * @param (\Closure(BeforeRememberEvent): void)|null $onEvent
+     */
+    private static function rememberDispatcher(array &$events, ?\Closure $onEvent = null): EventDispatcher
+    {
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(BeforeRememberEvent::class, static function (BeforeRememberEvent $event) use (&$events, $onEvent): void {
+            $events[] = $event;
+            if (null !== $onEvent) {
+                $onEvent($event);
+            }
+        });
+
+        return $dispatcher;
     }
 
     private static function redirectPolicy(): RedirectPolicy

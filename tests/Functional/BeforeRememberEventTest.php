@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Tests\Functional;
 
+use DeviceViewBundle\Event\BeforeRedirectEvent;
 use DeviceViewBundle\Event\BeforeRememberEvent;
 use DeviceViewBundle\Remember\RememberTrigger;
+use DeviceViewBundle\Tests\App\Event\BeforeRedirectListener;
 use DeviceViewBundle\Tests\App\Event\BeforeRememberListener;
 use DeviceViewBundle\View\DeviceType;
 use PHPUnit\Framework\Attributes\Group;
@@ -26,6 +28,12 @@ final class BeforeRememberEventTest extends TestCase
     private const array GRANTED = ['tarteaucitron' => '!device_view=true'];
 
     private const array DENIED = ['tarteaucitron' => '!device_view=false'];
+
+    /** Mobile served on m.example.com, desktop on www.example.com. */
+    private const array MD = ['redirect' => [
+        'mobile' => ['enabled' => true, 'host' => 'https://m.example.com'],
+        'desktop' => ['enabled' => true, 'host' => 'https://www.example.com'],
+    ]];
 
     #[Group('EVT-REM-01')]
     public function testSwitchGetters(): void
@@ -109,6 +117,7 @@ final class BeforeRememberEventTest extends TestCase
     /**
      * A cancelled remember forces nothing private: the response keeps its own Cache-Control.
      */
+    #[Group('EVT-REM-12')]
     public function testACancelledRememberLeavesTheResponsePublic(): void
     {
         $this->boot(['remember' => ['detected_view' => true]]);
@@ -127,6 +136,7 @@ final class BeforeRememberEventTest extends TestCase
     /**
      * As with the route default false, a cancelled remember still expires a forged stored value.
      */
+    #[Group('EVT-REM-11')]
     public function testACancelledRememberStillExpiresAForgedValue(): void
     {
         $this->boot(['remember' => ['detected_view' => true]]);
@@ -140,6 +150,103 @@ final class BeforeRememberEventTest extends TestCase
         self::assertSetCookie(self::scDel(), $response);
         self::assertSame('max-age=3600, private', $response->headers->get('Cache-Control'));
         self::assertCount(1, $this->listener()->events);
+    }
+
+    /**
+     * The switch listener sees the cancel when the switched view is served on the current host,
+     * as REG-21 with remember.on_switch false: the switch stays on its page, so the device
+     * redirect cannot send it back to the host that remembers another view.
+     */
+    #[Group('EVT-REM-13')]
+    public function testACancelledSwitchRememberCausesNoLoop(): void
+    {
+        $this->boot(self::MD);
+        $this->listener()->onEvent = static function (BeforeRememberEvent $event): void {
+            $event->cancel();
+        };
+
+        $first = $this->handle(self::request('https://m.example.com/view', 'iphone', cookies: ['device_view' => 'desktop']));
+        self::assertSame(302, $first->getStatusCode());
+        self::assertSame('https://www.example.com/view?device_view=desktop', $first->headers->get('Location'));
+        self::assertSame([], $this->listener()->events, 'the view comes from the storage: nothing to remember');
+
+        $response = $this->handle(self::request('https://www.example.com/view?device_view=desktop', 'iphone'));
+
+        self::assertSame('desktop switch', $response->getContent());
+        self::assertNull($response->headers->get('Location'));
+        self::assertNoCookie($response);
+        self::assertSame([['trigger' => RememberTrigger::Switch, 'view' => DeviceType::Desktop, 'consent' => null, 'lifetime' => 0]], $this->listener()->events);
+    }
+
+    /**
+     * When the switch listener dispatches the event, the response writes what the event says and
+     * does not dispatch it again.
+     */
+    #[Group('EVT-REM-14')]
+    public function testTheSwitchListenerDispatchesTheEventOnce(): void
+    {
+        $this->boot(self::MD);
+        $this->listener()->onEvent = static function (BeforeRememberEvent $event): void {
+            $event->setLifetime(3600);
+        };
+
+        $response = $this->handle(self::request('https://www.example.com/view?device_view=desktop', 'iphone'));
+
+        self::assertSame(302, $response->getStatusCode());
+        self::assertSame('/view', $response->headers->get('Location'));
+        self::assertSetCookie(self::scs('desktop', 3600), $response);
+        self::assertCount(1, $this->listener()->events);
+    }
+
+    /**
+     * With the switch redirect cancelled, the controller runs: a consent or a view it changes
+     * makes the response dispatch the event again, with the values it writes.
+     */
+    public function testAControllerChangeAfterTheSwitchEventDispatchesItAgain(): void
+    {
+        $this->boot(self::TAC + self::MD);
+        $this->redirectListener()->onEvent = static function (BeforeRedirectEvent $event): void {
+            $event->cancel();
+        };
+
+        $response = $this->handle(self::request('https://www.example.com/view?device_view=desktop', 'iphone'));
+        self::assertSame('desktop switch', $response->getContent());
+        self::assertSetCookie(self::scs('desktop'), $response);
+        self::assertCount(1, $this->listener()->events, 'nothing changed: the event of the switch listener is used');
+
+        $response = $this->handle(self::request('https://www.example.com/set-consent/1?device_view=desktop', 'iphone'));
+        self::assertSetCookie(self::scs('desktop', 31536000), $response);
+        self::assertSame([
+            ['trigger' => RememberTrigger::Switch, 'view' => DeviceType::Desktop, 'consent' => null, 'lifetime' => 0],
+            ['trigger' => RememberTrigger::Switch, 'view' => DeviceType::Desktop, 'consent' => true, 'lifetime' => 31536000],
+        ], $this->listener()->events);
+
+        $response = $this->handle(self::request('https://www.example.com/set-view/tablet?remember=1&device_view=desktop', 'iphone'));
+        self::assertSetCookie(self::scs('tablet'), $response);
+        self::assertSame([
+            ['trigger' => RememberTrigger::Switch, 'view' => DeviceType::Desktop, 'consent' => null, 'lifetime' => 0],
+            ['trigger' => RememberTrigger::Switch, 'view' => DeviceType::Tablet, 'consent' => null, 'lifetime' => 0],
+        ], $this->listener()->events);
+    }
+
+    /**
+     * A remember cancelled by the switch listener stays cancelled on the response.
+     */
+    public function testARememberCancelledOnTheRequestIsNotWritten(): void
+    {
+        $this->boot(self::MD);
+        $calls = 0;
+        $this->listener()->onEvent = static function (BeforeRememberEvent $event) use (&$calls): void {
+            if (1 === ++$calls) {
+                $event->cancel();
+            }
+        };
+
+        $response = $this->handle(self::request('https://www.example.com/view?device_view=desktop', 'iphone'));
+
+        self::assertSame('desktop switch', $response->getContent());
+        self::assertNoCookie($response);
+        self::assertSame(1, $calls);
     }
 
     #[Group('EVT-REM-05')]
@@ -232,6 +339,14 @@ final class BeforeRememberEventTest extends TestCase
 
         self::assertTrue($dispatcher->hasListeners(BeforeRememberEvent::class));
         self::assertCount(1, $this->listener()->events, 'the listener on BeforeRememberEvent::class is called');
+    }
+
+    private function redirectListener(): BeforeRedirectListener
+    {
+        $listener = $this->service(BeforeRedirectListener::class);
+        self::assertInstanceOf(BeforeRedirectListener::class, $listener);
+
+        return $listener;
     }
 
     private function listener(): BeforeRememberListener

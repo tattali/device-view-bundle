@@ -30,9 +30,11 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * from the consent: DeviceView::setConsent(), or else the consent checker, asked only when the
  * policy may write for the trigger. DeviceView::setRemember(false) and the remember route default
  * false of the matched route stop any write; neither true bypasses the policy. Right before a
- * write, BeforeRememberEvent may change its lifetime or cancel it. When nothing is written, a
- * forged stored value is expired, when the storage can remove it. A response that writes or
- * expires the stored value becomes private when http_cache.private_when_remembering is set.
+ * write, BeforeRememberEvent may change its lifetime or cancel it; when the switch listener
+ * dispatched it already, for the same view and consent, that event is used without a second
+ * dispatch. When nothing is written, a forged stored value is expired, when the storage can
+ * remove it. A response that writes or expires the stored value becomes private when
+ * http_cache.private_when_remembering is set.
  *
  * Skipped requests never write nor expire, and neither does any request without a storage
  * (remember.storage: none). Once this listener ran, DeviceView ignores changes.
@@ -112,8 +114,13 @@ final readonly class RememberListener
             $view = DeviceType::Mobile;
         }
 
-        $beforeRemember = new BeforeRememberEvent($trigger, $view, $consent, $lifetime);
-        $this->dispatcher?->dispatch($beforeRemember);
+        // the switch listener may have dispatched the event already, for a switch it redirects
+        $beforeRemember = $context->beforeRemember;
+        if (null === $beforeRemember || $view !== $beforeRemember->getView() || $consent !== $beforeRemember->getConsent()) {
+            $beforeRemember = new BeforeRememberEvent($trigger, $view, $consent, $lifetime);
+            $this->dispatcher?->dispatch($beforeRemember);
+        }
+
         if ($beforeRemember->isCancelled()) {
             return false;
         }

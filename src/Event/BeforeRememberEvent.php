@@ -12,7 +12,10 @@ use Symfony\Contracts\EventDispatcher\Event;
  * Dispatched on the response of a main request, right before the bundle stores the view, once
  * the remember decision table (design.md section 7) says it is stored: with the switch trigger
  * for a switch or DeviceView::setView() asked to remember, with the detected trigger for a view
- * from the detector or the trusted header.
+ * from the detector or the trusted header. For a switch redirected on the host its view is
+ * served on, the switch listener dispatches it on the request instead, and a cancel keeps the
+ * switch on its page; the response then uses that event without dispatching it again, unless
+ * the view or the consent changed.
  *
  * A listener may change the lifetime, which the storage then uses as is (0 = until the browser
  * session ends; session storage ignores lifetimes), or cancel the remember: nothing is stored,

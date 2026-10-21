@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Context;
 
+use DeviceViewBundle\Event\BeforeRememberEvent;
 use DeviceViewBundle\Event\ViewResolvedEvent;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Resolver\ResolvedView;
@@ -69,6 +70,13 @@ final class DeviceViewContext
      * this request; null when it was not called or was reset, so the consent checker answers.
      */
     public private(set) ?bool $consent = null;
+
+    /**
+     * The BeforeRememberEvent the switch listener dispatched, after its listeners ran, or null:
+     * the remember listener uses it instead of dispatching again, while the view and the consent
+     * of the write are still the ones of the event.
+     */
+    public private(set) ?BeforeRememberEvent $beforeRemember = null;
 
     /**
      * Whether the remember storage holds a string that is not a view name, which the response
@@ -232,6 +240,14 @@ final class DeviceViewContext
     public function setConsent(?bool $consent): void
     {
         $this->consent = $consent;
+    }
+
+    /**
+     * Records the BeforeRememberEvent the switch listener dispatched.
+     */
+    public function recordBeforeRemember(BeforeRememberEvent $event): void
+    {
+        $this->beforeRemember = $event;
     }
 
     /**

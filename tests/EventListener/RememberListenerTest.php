@@ -626,6 +626,73 @@ final class RememberListenerTest extends TestCase
         self::assertSame('private', $response->headers->get('Cache-Control'));
     }
 
+    public function testTheEventOfTheSwitchListenerIsNotDispatchedAgain(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $request->headers->set('X-Consent', 'no');
+        $context->markSwitched(DeviceType::Tablet);
+        $recorded = new BeforeRememberEvent(RememberTrigger::Switch, DeviceType::Mobile, false, 60);
+        $recorded->setLifetime(7200);
+        $context->recordBeforeRemember($recorded);
+        $events = [];
+
+        $response = self::respond(self::listener(self::consentPolicy(), tabletAsMobile: true, consentChecker: new HeaderConsent(), dispatcher: self::dispatcher($events)), $request);
+
+        self::assertSame([], $events);
+        $cookies = $response->headers->getCookies();
+        self::assertCount(1, $cookies);
+        self::assertSame('mobile', $cookies[0]->getValue());
+        self::assertEqualsWithDelta(time() + 7200, $cookies[0]->getExpiresTime(), 1, 'the lifetime of the recorded event');
+    }
+
+    public function testACancelledEventOfTheSwitchListenerWritesNothing(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $context->markSwitched(DeviceType::Tablet);
+        $recorded = new BeforeRememberEvent(RememberTrigger::Switch, DeviceType::Tablet, null, 0);
+        $recorded->cancel();
+        $context->recordBeforeRemember($recorded);
+        $events = [];
+
+        $response = self::respond(self::listener(dispatcher: self::dispatcher($events)), $request, new Response()->setPublic());
+
+        self::assertSame([], $events);
+        self::assertSame([], self::cookies($response));
+        self::assertSame('public', $response->headers->get('Cache-Control'));
+    }
+
+    /**
+     * @return iterable<string, array{DeviceType, bool|null}>
+     */
+    public static function staleEvents(): iterable
+    {
+        yield 'another view' => [DeviceType::Desktop, false];
+        yield 'another consent' => [DeviceType::Tablet, null];
+    }
+
+    /**
+     * A view or a consent changed after the switch listener dispatched the event: the response
+     * dispatches it again with what it writes.
+     */
+    #[DataProvider('staleEvents')]
+    public function testAStaleEventOfTheSwitchListenerIsDispatchedAgain(DeviceType $view, ?bool $consent): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $request->headers->set('X-Consent', 'no');
+        $context->markSwitched(DeviceType::Tablet);
+        $recorded = new BeforeRememberEvent(RememberTrigger::Switch, $view, $consent, 60);
+        $recorded->cancel();
+        $context->recordBeforeRemember($recorded);
+        $events = [];
+
+        $response = self::respond(self::listener(self::consentPolicy(), consentChecker: new HeaderConsent(), dispatcher: self::dispatcher($events)), $request);
+
+        self::assertCount(1, $events);
+        self::assertSame(DeviceType::Tablet, $events[0]->getView());
+        self::assertFalse($events[0]->getConsent());
+        self::assertSame(['device_view' => 'tablet'], self::cookies($response));
+    }
+
     /**
      * @param \Closure(Request, DeviceViewContext): void $prepare
      */

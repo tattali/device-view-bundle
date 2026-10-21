@@ -721,6 +721,10 @@ parameter is ignored), redirects, remembers or expires a stored value.
 | EVT-REM-08 | Cancelling a session write | `remember: { storage: session }`, a listener calling `cancel()` | `GET /view?device_view=mobile` | the session is not started | active |
 | EVT-REM-09 | Negative lifetime | a listener calling `setLifetime(-1)` | `GET /view?device_view=mobile` | `InvalidArgumentException`, message `The remember lifetime must be 0 or more seconds; got -1.` | active |
 | EVT-REM-10 | Event name | a listener on `BeforeRememberEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::BEFORE_REMEMBER`) | `GET /view?device_view=mobile` | the listener is called | active |
+| EVT-REM-11 | A cancelled remember still expires a forged value | `remember: { detected_view: true }`, a listener calling `cancel()` | `GET /cacheable`, `UA=iphone`, `Cookie: device_view=phone` | 200 `"mobile detector"`, `Set-Cookie: SC-DEL`, `Cache-Control: max-age=3600, private`, 1 call | active |
+| EVT-REM-12 | A cancelled remember forces nothing private | `remember: { detected_view: true }`, a listener calling `cancel()` | `GET /cacheable`, `UA=iphone` | 200 `"mobile detector"`, no `Set-Cookie`, `Cache-Control: max-age=3600, public`, 1 call | active |
+| EVT-REM-13 | A cancelled switch remember causes no loop | `M`, `D`, a listener calling `cancel()` | `GET https://m.example.com/view`, `UA=iphone`, `Cookie: device_view=desktop`; then `GET https://www.example.com/view?device_view=desktop`, `UA=iphone`, no cookie | first response: 302, `Location: https://www.example.com/view?device_view=desktop`, 0 calls; second response: 200 `"desktop switch"`, no `Location`, no `Set-Cookie`, 1 call (`switch`, Desktop, consent null, lifetime 0) | active |
+| EVT-REM-14 | Dispatched once for a switch redirected on the host of its view | `M`, `D`, a listener calling `setLifetime(3600)` | `GET https://www.example.com/view?device_view=desktop`, `UA=iphone` | 302, `Location: /view`, `Set-Cookie: SCS(desktop, 3600)`, 1 call | active |
 
 ## 19. Twig (TWIG), design.md section 10
 
@@ -1063,22 +1067,28 @@ the area; if the owner disagrees, the rows change before they become active.
   nothing never reads the consent cookie (REM-26).
 - A configured host with its scheme's default port (`https://m.example.com:443`) matches the
   host without a port, and the port is left out of the `Location` (RED-14, REG-07).
-- `BeforeRememberEvent` is dispatched on the response, right before the view is stored, only
-  when the decision table says it is stored: never when the table, `DeviceView::setRemember(false)`
+- `BeforeRememberEvent` is dispatched on the response, right before the view is stored (or
+  earlier by the switch listener, in the one case below), only when the decision table says it
+  is stored: never when the table, `DeviceView::setRemember(false)`
   or the remember route default stop the write, on a skipped request, or with `storage: none`
   (EVT-REM-07). `getView()` is the view that is stored, after `tablet_as_mobile`; `getConsent()`
   is the consent the lifetime came from (`DeviceView::setConsent()`, else the checker, `null`
   without a provider). `cancel()` does not stop the propagation, and `isCancelled()` tells later
   listeners. A cancelled remember stores nothing and forces nothing private (EVT-REM-04,
-  EVT-REM-08), but a forged stored value is still expired, as with the route default `false`. A
-  lifetime set by a listener is used as is, 0 giving a browser-session cookie (EVT-REM-05,
+  EVT-REM-08, EVT-REM-12), but a forged stored value is still expired, as with the route default
+  `false` (EVT-REM-11). A lifetime set by a listener is used as is, 0 giving a browser-session cookie (EVT-REM-05,
   EVT-REM-06).
-- The switch listener decides its redirect on `kernel.request`, before `BeforeRememberEvent`, so
-  cancelling the remember of a switch keeps its redirect (EVT-REM-04), and the loop guard of
-  REG-21 does not see the cancel. With views served on their own hosts and a view remembered on
-  one host only, a listener that cancels switch remembers can bring that loop back;
-  `remember.on_switch: false` or the route default `_device_view_remember: false`, which the
-  switch listener reads, keep the switch on the page instead.
+- The switch listener reads `BeforeRememberEvent` for one case only: a switch it would redirect
+  to the page without the parameter while the switched view is served on the current host (views
+  on their own hosts). There it dispatches the event on `kernel.request`, and a cancelled
+  remember keeps the switch on its page, as `remember.on_switch: false` does, so the loop of
+  REG-21 cannot come back (EVT-REM-13). The redirect answers the request, so no controller changes
+  the view or the consent before the write, and the response uses that event without dispatching
+  it again (EVT-REM-14). When a `BeforeRedirectEvent` listener cancels that redirect and a
+  controller then changes the view or the consent, the response dispatches the event again with
+  the values it writes. Elsewhere the event is dispatched on the response only, so cancelling the
+  remember of a switch keeps its redirect (EVT-REM-04). `DeviceView::setRemember(false)` called
+  before the switch listener also keeps the switch on its page there.
 - `BeforeRedirectEvent::setStatus()` with a status outside 301, 302, 303, 307 and 308, and
   `BeforeRememberEvent::setLifetime()` with a negative value, throw `InvalidArgumentException`
   (EVT-RED-07, EVT-REM-09).
