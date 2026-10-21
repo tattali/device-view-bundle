@@ -24,5 +24,11 @@ return static function (RoutingConfigurator $routes): void {
     // a string, as XML routes give
     $routes->add('no_remember_xml', '/no-remember-xml')->controller([TestController::class, 'view'])->defaults(['_device_view_remember' => 'false']);
     $routes->add('remember', '/remember')->controller([TestController::class, 'view'])->defaults(['_device_view_remember' => true]);
+    $routes->add('api', '/api/thing')->controller([TestController::class, 'view']);
+    // stubs on the skipped paths: without a route, the router answers 404 before the switch and
+    // redirect listeners run
+    $routes->add('profiler_stub', '/_profiler/abc')->controller([TestController::class, 'view']);
+    $routes->add('wdt_stub', '/_wdt/abc')->controller([TestController::class, 'view']);
+    $routes->add('fragment_stub', '/_fragment')->controller([TestController::class, 'view']);
     $routes->add('custom_keys', '/custom-keys')->controller([TestController::class, 'view'])->defaults(['_dv_redirect' => 'none', '_dv_remember' => false]);
 };
