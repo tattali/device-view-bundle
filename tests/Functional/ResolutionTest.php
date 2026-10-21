@@ -7,6 +7,7 @@ namespace DeviceViewBundle\Tests\Functional;
 use DeviceViewBundle\Context\DeviceViewContext;
 use DeviceViewBundle\Tests\App\Detector\CountingDetector;
 use DeviceViewBundle\Tests\App\Detector\HeaderDetector;
+use DeviceViewBundle\Tests\App\Event\ViewResolvedListener;
 use DeviceViewBundle\Tests\App\RequestRecorder;
 use DeviceViewBundle\View\DeviceType;
 use DeviceViewBundle\View\ViewSource;
@@ -41,6 +42,7 @@ final class ResolutionTest extends TestCase
         self::assertSame(['Cookie', 'User-Agent'], $context->consultedInputs);
     }
 
+    #[Group('RES-01')]
     public function testResolutionIsLazy(): void
     {
         $this->boot(self::COUNTING, self::COUNTING_SERVICE);
@@ -56,6 +58,7 @@ final class ResolutionTest extends TestCase
         $context = $request->attributes->get('_device_view');
         self::assertInstanceOf(DeviceViewContext::class, $context);
         self::assertNull($context->resolved);
+        self::assertSame([], $this->viewResolvedListener()->events, 'ViewResolvedEvent is not dispatched');
     }
 
     public function testTheViewIsResolvedOncePerRequest(): void
@@ -139,6 +142,7 @@ final class ResolutionTest extends TestCase
     }
 
     #[Group('FAC-13')]
+    #[Group('RES-09')]
     public function testSubRequestsReadTheMainRequestView(): void
     {
         $this->boot(self::COUNTING, self::COUNTING_SERVICE);
@@ -152,6 +156,7 @@ final class ResolutionTest extends TestCase
         self::assertCount(2, $recorder->requests);
         self::assertInstanceOf(DeviceViewContext::class, $recorder->requests[0]->attributes->get('_device_view'));
         self::assertFalse($recorder->requests[1]->attributes->has('_device_view'), 'the sub-request has no context of its own');
+        self::assertCount(1, $this->viewResolvedListener()->events, 'ViewResolvedEvent is dispatched once');
     }
 
     #[Group('VW-01')]
@@ -275,5 +280,13 @@ final class ResolutionTest extends TestCase
         self::assertInstanceOf(CountingDetector::class, $detector);
 
         return $detector;
+    }
+
+    private function viewResolvedListener(): ViewResolvedListener
+    {
+        $listener = $this->service(ViewResolvedListener::class);
+        self::assertInstanceOf(ViewResolvedListener::class, $listener);
+
+        return $listener;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DeviceViewBundle\Context;
 
+use DeviceViewBundle\Event\ViewResolvedEvent;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Resolver\ResolvedView;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
@@ -76,6 +77,18 @@ final class DeviceViewContext
     public private(set) bool $forgedStoredValue = false;
 
     /**
+     * Whether ViewResolvedEvent was dispatched for this request: it is dispatched once, even when
+     * a listener throws.
+     */
+    public private(set) bool $viewResolvedDispatched = false;
+
+    /**
+     * Whether a ViewResolvedEvent listener forced a view with DeviceView::setView(): the
+     * resolver then resolves again, so the forced view wins over the view of the event.
+     */
+    public private(set) bool $forcedDuringViewResolved = false;
+
+    /**
      * Whether the response listener ran: DeviceView ignores changes from then on.
      */
     public private(set) bool $responseBuilt = false;
@@ -92,6 +105,19 @@ final class DeviceViewContext
      */
     public private(set) ?bool $routeRemember = null;
 
+    /**
+     * The event while its listeners run, so a read from a listener gets the view the event holds
+     * instead of resolving again; null otherwise.
+     */
+    private ?ViewResolvedEvent $dispatching = null;
+
+    /**
+     * The inputs the resolution in progress read before the event.
+     *
+     * @var list<string>
+     */
+    private array $dispatchingInputs = [];
+
     private bool $switchRead = false;
 
     private bool $routeRedirectRead = false;
@@ -107,10 +133,16 @@ final class DeviceViewContext
     }
 
     /**
-     * Resolves the view the first time it is asked for, then returns the same result.
+     * Resolves the view the first time it is asked for, then returns the same result. While
+     * ViewResolvedEvent listeners run, it returns the view the event holds, from the resolution
+     * in progress.
      */
     public function resolve(ViewResolverInterface $resolver, Request $request): ResolvedView
     {
+        if (null === $this->resolved && null !== $this->dispatching) {
+            return new ResolvedView($this->dispatching->getView(), $this->dispatching->getSource(), $this->dispatchingInputs);
+        }
+
         if (null === $this->resolved) {
             $this->resolved = $resolver->resolve($request, $this);
             $this->consultedInputs = array_values(array_unique([...$this->consultedInputs, ...$this->resolved->consultedInputs]));
@@ -173,7 +205,8 @@ final class DeviceViewContext
 
     /**
      * Forces the view: the next read resolves again, with the forced view first. The inputs
-     * already read stay recorded.
+     * already read stay recorded. From a ViewResolvedEvent listener, the forced view replaces the
+     * view of the event.
      *
      * @param bool $remember whether to remember the view like a switch, which replaces the planned view; without it, the planned view stays
      */
@@ -185,6 +218,10 @@ final class DeviceViewContext
         }
 
         $this->resolved = null;
+        if (null !== $this->dispatching) {
+            $this->dispatching = null;
+            $this->forcedDuringViewResolved = true;
+        }
     }
 
     public function setRemember(bool $remember): void
@@ -203,6 +240,27 @@ final class DeviceViewContext
     public function markForgedStoredValue(): void
     {
         $this->forgedStoredValue = true;
+    }
+
+    /**
+     * Records that ViewResolvedEvent is dispatched for this request, and holds the event while
+     * its listeners run.
+     *
+     * @param list<string> $consultedInputs the inputs the resolution read before the event
+     */
+    public function beginViewResolvedDispatch(ViewResolvedEvent $event, array $consultedInputs): void
+    {
+        $this->viewResolvedDispatched = true;
+        $this->dispatching = $event;
+        $this->dispatchingInputs = $consultedInputs;
+    }
+
+    /**
+     * Records that the ViewResolvedEvent listeners are done, or that one of them threw.
+     */
+    public function endViewResolvedDispatch(): void
+    {
+        $this->dispatching = null;
     }
 
     /**

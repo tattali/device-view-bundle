@@ -190,7 +190,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| RES-01 | Resolution is lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary`, no `Set-Cookie`; the detector is not called; `ViewResolvedEvent` is not dispatched | planned |
+| RES-01 | Resolution is lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary`, no `Set-Cookie`; the detector is not called; `ViewResolvedEvent` is not dispatched | active |
 | RES-02 | Detector decides | — | `GET /view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | active |
 | RES-03 | `default_view` when the detector cannot tell | — | `GET /view`, `UA=empty` | 200 `"desktop default"`, `Vary: [Cookie, User-Agent]` | active |
 | RES-04 | Forced view beats every source | `TH` | `GET /set-view/tablet`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=iphone` | 200 `"tablet forced"`, no `Set-Cookie`, no `Vary` (nothing was consulted) | active |
@@ -198,7 +198,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | RES-06 | Remembered beats trusted header and detector | `TH` | `GET /view`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=desktop_chrome` | 200 `"mobile remembered"`, `Vary: [Cookie]` | active |
 | RES-07 | Trusted header beats detector | `TH` | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"tablet trusted_header"`, `Vary: [Cookie, X-Device-View]` | active |
 | RES-08 | The view is resolved once per request | — (TwigBundle registered) | `GET /twig`, `UA=iphone`, the template and a `ViewResolvedEvent` listener read the view several times | the detector is called once; `ViewResolvedEvent` is dispatched once | planned |
-| RES-09 | Sub-requests read the main request's view | — | `GET /with-sub-request`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`; `ViewResolvedEvent` dispatched once; the sub-request has no `_device_view` attribute | planned |
+| RES-09 | Sub-requests read the main request's view | — | `GET /with-sub-request`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`; `ViewResolvedEvent` dispatched once; the sub-request has no `_device_view` attribute | active |
 | RES-10 | The context lives in the main request | — | `GET /view`, `UA=iphone` | after `kernel.request`, the main request attribute `_device_view` is a `DeviceViewContext` | active |
 | RES-11 | The resolver ignores the switch parameter when the method is not allowed | — | `POST /form?device_view=mobile` | 200 `"desktop detector"`, no `Set-Cookie` | active |
 | RES-12 | The resolver ignores the switch parameter when the switch is disabled | `switch: { enabled: false }` | `GET /view?device_view=mobile` | 200 `"desktop detector"`, no `Location`, no `Set-Cookie` | active |
@@ -682,13 +682,17 @@ parameter is ignored), redirects, remembers or expires a stored value.
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| EVT-RES-01 | A listener changes the view, the source stays | a listener calling `setView(DeviceType::Tablet)` | `GET /view`, `UA=iphone` | 200 `"tablet detector"` | planned |
-| EVT-RES-02 | Getters | a recording listener | `GET /view`, `UA=iphone` | `getView()` Mobile, `getSource()` Detector, `getRequest()` is the main request | planned |
-| EVT-RES-03 | Dispatched once per main request | a counting listener | `GET /with-sub-request`, `UA=iphone` | 1 call | planned |
-| EVT-RES-04 | Not dispatched when the view is not used | a counting listener | `GET /`, `UA=iphone` | 0 calls | planned |
-| EVT-RES-05 | Dispatched after `tablet_as_mobile` | `tablet_as_mobile: true`, a recording listener | `GET /view`, `UA=ipad_legacy` | `getView()` Mobile | planned |
-| EVT-RES-06 | The listener's view drives the redirect | `M`, a listener setting Mobile | `GET http://www.example.com/`, `UA=desktop_chrome` | 302, `Location: https://m.example.com/?device_view=mobile` | planned |
-| EVT-RES-07 | Event name | a listener on `ViewResolvedEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::VIEW_RESOLVED`) | `GET /view` | the listener is called | planned |
+| EVT-RES-01 | A listener changes the view, the source stays | a listener calling `setView(DeviceType::Tablet)` | `GET /view`, `UA=iphone` | 200 `"tablet detector"` | active |
+| EVT-RES-02 | Getters | a recording listener | `GET /view`, `UA=iphone` | `getView()` Mobile, `getSource()` Detector, `getRequest()` is the main request | active |
+| EVT-RES-03 | Dispatched once per main request | a counting listener | `GET /with-sub-request`, `UA=iphone` | 1 call | active |
+| EVT-RES-04 | Not dispatched when the view is not used | a counting listener | `GET /`, `UA=iphone` | 0 calls | active |
+| EVT-RES-05 | Dispatched after `tablet_as_mobile` | `tablet_as_mobile: true`, a recording listener | `GET /view`, `UA=ipad_legacy` | `getView()` Mobile | active |
+| EVT-RES-06 | The listener's view drives the redirect | `M`, a listener setting Mobile | `GET http://www.example.com/`, `UA=desktop_chrome` | 302, `Location: https://m.example.com/?device_view=mobile` | active |
+| EVT-RES-07 | Event name | a listener on `ViewResolvedEvent::class` (on lines without FQCN event names, on `DeviceViewEvents::VIEW_RESOLVED`) | `GET /view` | the listener is called | active |
+| EVT-RES-08 | A view forced after the event is not changed again | a counting listener calling `setView(DeviceType::Desktop)` | in a controller, `UA=iphone`: read, then `setView('tablet')`, then read | `desktop`, then `tablet` with source Forced; 200 `"tablet forced"`; 1 call | active |
+| EVT-RES-09 | A view forced before the first read is dispatched | a recording listener | `GET /set-view/tablet`, `UA=iphone` | `getView()` Tablet, `getSource()` Forced; 200 `"tablet forced"` | active |
+| EVT-RES-10 | A listener reading the view does not resolve again | `detector: { id: app.counting_detector }`, a listener reading the view name through the facade, then calling `setView(DeviceType::Tablet)` and reading the view name and source | `GET /view`, `UA=iphone` | the listener reads `mobile`, then `tablet detector`; 200 `"tablet detector"`; the detector is called once; 1 call | active |
+| EVT-RES-11 | A view forced in a listener wins | `remember: { detected_view: true }`, a listener calling `DeviceView::setView('desktop', true)`, reading the view name and source, then calling `setView(DeviceType::Tablet)` on the event | `GET /view`, `UA=iphone` | the listener reads `desktop forced`; 200 `"desktop forced"`; `Set-Cookie: device_view=desktop`; 1 call |  active |
 
 ### BeforeRedirectEvent (EVT-RED)
 
@@ -954,6 +958,20 @@ the area; if the owner disagrees, the rows change before they become active.
   method allowed, main request, not skipped (RES-11, RES-12, SKIP-06).
 - With `tablet_as_mobile`, the remembered value is the mapped view (VW-05).
 - A `ViewResolvedEvent` listener that changes the view keeps the recorded source (EVT-RES-01).
+- `ViewResolvedEvent` is dispatched by the first resolution of the main request, whatever its
+  source, a forced view included (EVT-RES-09). A view forced with `DeviceView::setView()` after
+  that resolves again without a new event, so the forced view stands (EVT-RES-08).
+- The view a `ViewResolvedEvent` listener sets is final: `tablet_as_mobile` does not map it again.
+- A `ViewResolvedEvent` listener that reads the view, through the facade or any other service,
+  gets the view the event holds at that moment and its source; the resolution is not run again
+  (EVT-RES-10).
+- `DeviceView::setView()` called from a `ViewResolvedEvent` listener wins over the view of the
+  event: the request uses the forced view with source `forced`, and remembers it when asked
+  (EVT-RES-11).
+- When a `ViewResolvedEvent` listener throws, the event still counts as dispatched: a later read
+  in the same request, such as an error page, resolves the view without the event.
+- The built-in resolver dispatches `ViewResolvedEvent`; a resolver set with `services.resolver`
+  replaces the whole resolution, the event included.
 - Removing a forged cookie counts as writing the remember cookie for `private_when_remembering`
   (HC-04).
 - Session storage adds `Cookie` to `Vary`, because the session id is a cookie (SES-02, SES-03).

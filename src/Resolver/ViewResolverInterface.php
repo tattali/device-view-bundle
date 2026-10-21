@@ -13,7 +13,9 @@ use Symfony\Component\HttpFoundation\Request;
  * The context calls it lazily, the first time something asks for the view, and keeps the
  * result for the rest of the request. Implementations are shared between requests, so they keep
  * no request state. Replace it with device_view.services.resolver or by decorating
- * device_view.resolver.
+ * device_view.resolver. The built-in resolver dispatches ViewResolvedEvent; a replacement
+ * dispatches it itself when it needs it, between DeviceViewContext::beginViewResolvedDispatch()
+ * and endViewResolvedDispatch(), as the built-in resolver does.
  */
 interface ViewResolverInterface
 {
