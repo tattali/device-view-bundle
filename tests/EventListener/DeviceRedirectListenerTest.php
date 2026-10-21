@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\EventListener;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\BeforeRedirectEvent;
 use DeviceViewBundle\EventListener\DeviceRedirectListener;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Redirect\RedirectPolicy;
+use DeviceViewBundle\Redirect\RedirectReason;
 use DeviceViewBundle\Resolver\ResolvedView;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\Routing\RouteDefaults;
@@ -18,6 +20,7 @@ use DeviceViewBundle\View\ViewSource;
 use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -240,6 +243,44 @@ final class DeviceRedirectListenerTest extends TestCase
         $event = self::event($withoutRoute);
         new DeviceRedirectListener($policy, self::resolver(), switchParameter: $parameter, routeDefaults: new RouteDefaults())->onKernelRequest($event);
         self::assertInstanceOf(RedirectResponse::class, $event->getResponse());
+    }
+
+    public function testBeforeRedirectEventChangesTheRedirect(): void
+    {
+        [$request] = self::request('http://www.example.com/blog/post?a=1');
+        $event = self::event($request);
+        $dispatcher = new EventDispatcher();
+        /** @var list<array{RedirectReason, string, int}> $seen */
+        $seen = [];
+        $dispatcher->addListener(BeforeRedirectEvent::class, static function (BeforeRedirectEvent $redirect) use (&$seen): void {
+            $seen[] = [$redirect->getReason(), $redirect->getUrl(), $redirect->getStatus()];
+            $redirect->setUrl('https://m.example.com/');
+            $redirect->setStatus(307);
+        });
+
+        new DeviceRedirectListener(self::policy(), self::resolver(), dispatcher: $dispatcher)->onKernelRequest($event);
+
+        self::assertSame([[RedirectReason::Device, 'https://m.example.com/blog/post?a=1&device_view=mobile', 301]], $seen);
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('https://m.example.com/', $response->getTargetUrl());
+        self::assertSame(307, $response->getStatusCode());
+        self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+    }
+
+    public function testACancelledRedirectLeavesTheRequestAlone(): void
+    {
+        [$request, $context] = self::request('http://www.example.com/blog/post');
+        $event = self::event($request);
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(BeforeRedirectEvent::class, static function (BeforeRedirectEvent $redirect): void {
+            $redirect->cancel();
+        });
+
+        new DeviceRedirectListener(self::policy(), self::resolver(), dispatcher: $dispatcher)->onKernelRequest($event);
+
+        self::assertNull($event->getResponse());
+        self::assertSame(DeviceType::Mobile, $context->resolved?->view, 'the view stays resolved');
     }
 
     /**

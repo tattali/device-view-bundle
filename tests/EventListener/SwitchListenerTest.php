@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace DeviceViewBundle\Tests\EventListener;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\BeforeRedirectEvent;
 use DeviceViewBundle\EventListener\SwitchListener;
 use DeviceViewBundle\Redirect\RedirectAction;
 use DeviceViewBundle\Redirect\RedirectPolicy;
+use DeviceViewBundle\Redirect\RedirectReason;
 use DeviceViewBundle\Remember\RememberPolicy;
 use DeviceViewBundle\Resolver\Step\SwitchStep;
 use DeviceViewBundle\Resolver\ViewResolver;
@@ -19,6 +21,7 @@ use DeviceViewBundle\ViewSwitch\SwitchParameter;
 use DeviceViewBundle\ViewSwitch\SwitchTarget;
 use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -237,6 +240,58 @@ final class SwitchListenerTest extends TestCase
         $event = self::event($withoutReader);
         new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), redirectPolicy: self::redirectPolicy(), resolver: $resolver, rememberPolicy: new RememberPolicy())->onKernelRequest($event);
         self::assertInstanceOf(RedirectResponse::class, $event->getResponse(), 'without the reader, routes override nothing');
+    }
+
+    public function testBeforeRedirectEventChangesTheRedirect(): void
+    {
+        [$request] = self::request('/view?a=1&device_view=mobile');
+        $event = self::event($request);
+        $dispatcher = new EventDispatcher();
+        /** @var list<array{RedirectReason, string, int}> $seen */
+        $seen = [];
+        $dispatcher->addListener(BeforeRedirectEvent::class, static function (BeforeRedirectEvent $redirect) use (&$seen): void {
+            $seen[] = [$redirect->getReason(), $redirect->getUrl(), $redirect->getStatus()];
+            $redirect->setUrl('/elsewhere');
+            $redirect->setStatus(301);
+        });
+
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), status: 303, dispatcher: $dispatcher)->onKernelRequest($event);
+
+        self::assertSame([[RedirectReason::Switch, '/view?a=1', 303]], $seen);
+        $response = $event->getResponse();
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame('/elsewhere', $response->getTargetUrl());
+        self::assertSame(301, $response->getStatusCode());
+        self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+    }
+
+    public function testACancelledRedirectKeepsTheSwitch(): void
+    {
+        [$request, $context] = self::request('/view?device_view=tablet');
+        $event = self::event($request);
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(BeforeRedirectEvent::class, static function (BeforeRedirectEvent $redirect): void {
+            $redirect->cancel();
+        });
+
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), dispatcher: $dispatcher)->onKernelRequest($event);
+
+        self::assertNull($event->getResponse());
+        self::assertTrue($context->switched);
+        self::assertSame(DeviceType::Tablet, $context->plannedView);
+    }
+
+    public function testNoEventWithoutARedirect(): void
+    {
+        [$request] = self::request('/view?device_view=tablet');
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(BeforeRedirectEvent::class, static function (): void {
+            self::fail('No redirect, no event.');
+        });
+
+        new SwitchListener(new SwitchParameter(new ViewNames()), new SwitchUrlGenerator(), SwitchTarget::None, dispatcher: $dispatcher)->onKernelRequest(self::event($request));
+
+        self::assertTrue($dispatcher->hasListeners(BeforeRedirectEvent::class));
     }
 
     private static function redirectPolicy(): RedirectPolicy

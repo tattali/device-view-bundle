@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace DeviceViewBundle\EventListener;
 
 use DeviceViewBundle\Context\DeviceViewContext;
+use DeviceViewBundle\Event\BeforeRedirectEvent;
 use DeviceViewBundle\Redirect\RedirectPolicy;
+use DeviceViewBundle\Redirect\RedirectReason;
 use DeviceViewBundle\Remember\RememberPolicy;
 use DeviceViewBundle\Remember\RememberTrigger;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
@@ -16,6 +18,7 @@ use DeviceViewBundle\ViewSwitch\SwitchUrlGenerator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Applies the switch query parameter, on kernel.request at priority 31, after the RouterListener
@@ -26,19 +29,21 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * a redirect to the switch target: the current page without the parameter, or the home page.
  * When the view of the request is served on another host (device_view.redirect.<view>), the
  * redirect goes to that host instead, as the redirect policy decides, with the action the
- * redirect route default sets, if any. The redirect gets redirect.cache_control. A switch that is
- * not remembered (remember.on_switch false, or the remember route default false), on the host its
+ * redirect route default sets, if any. BeforeRedirectEvent, with the reason switch, may then
+ * change the URL or the status, or cancel the redirect: the switch stays, as with switch.target
+ * none. The redirect gets redirect.cache_control. A switch that is not remembered (remember.on_switch false, or the remember route default false), on the host its
  * view is served on, gets no redirect. The view itself comes from the resolver, whose switch step reads the same
  * parameter.
  */
 final readonly class SwitchListener
 {
     /**
-     * @param int                 $status         the redirect status: 302, 303 or 307
-     * @param string|null         $cacheControl   the Cache-Control of the redirect, or null to leave it alone
-     * @param RedirectPolicy|null $redirectPolicy the redirect policy of the views served on their own host, used with $resolver; without them the switch stays on the current host
-     * @param RememberPolicy|null $rememberPolicy whether a switch is remembered; without it, it is
-     * @param RouteDefaults|null  $routeDefaults  the reader of the route defaults; without it, routes override nothing
+     * @param int                           $status         the redirect status: 302, 303 or 307
+     * @param string|null                   $cacheControl   the Cache-Control of the redirect, or null to leave it alone
+     * @param RedirectPolicy|null           $redirectPolicy the redirect policy of the views served on their own host, used with $resolver; without them the switch stays on the current host
+     * @param RememberPolicy|null           $rememberPolicy whether a switch is remembered; without it, it is
+     * @param RouteDefaults|null            $routeDefaults  the reader of the route defaults; without it, routes override nothing
+     * @param EventDispatcherInterface|null $dispatcher     dispatches BeforeRedirectEvent; without it, no event
      */
     public function __construct(
         private SwitchParameter $parameter,
@@ -50,6 +55,7 @@ final readonly class SwitchListener
         private ?ViewResolverInterface $resolver = null,
         private ?RememberPolicy $rememberPolicy = null,
         private ?RouteDefaults $routeDefaults = null,
+        private ?EventDispatcherInterface $dispatcher = null,
     ) {
     }
 
@@ -80,9 +86,14 @@ final readonly class SwitchListener
             return;
         }
 
-        // BeforeRedirectEvent, with the reason "switch", is dispatched here once it exists: it may
-        // change the URL or the status, or cancel the redirect and keep the switch
-        $response = new RedirectResponse($location, $this->status);
+        // a cancelled redirect keeps the switch, its view and its remember
+        $beforeRedirect = new BeforeRedirectEvent(RedirectReason::Switch, $location, $this->status);
+        $this->dispatcher?->dispatch($beforeRedirect);
+        if ($beforeRedirect->isCancelled()) {
+            return;
+        }
+
+        $response = new RedirectResponse($beforeRedirect->getUrl(), $beforeRedirect->getStatus());
         if (null !== $this->cacheControl) {
             $response->headers->set('Cache-Control', $this->cacheControl);
         }
