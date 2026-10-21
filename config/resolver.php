@@ -7,6 +7,7 @@ use DeviceViewBundle\EventListener\ContextListener;
 use DeviceViewBundle\Resolver\Step\DetectorStep;
 use DeviceViewBundle\Resolver\Step\ForcedStep;
 use DeviceViewBundle\Resolver\Step\SwitchStep;
+use DeviceViewBundle\Resolver\Step\TrustedHeaderStep;
 use DeviceViewBundle\Resolver\ViewResolver;
 use DeviceViewBundle\Resolver\ViewResolverInterface;
 use DeviceViewBundle\View\ViewNames;
@@ -18,7 +19,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 // The per-request context, the lazy resolution of the view and the DeviceView facade.
 // DeviceViewBundle::loadExtension() sets the arguments that come from the configuration, and
-// device_view.resolver, an alias of device_view.resolver.default or of services.resolver.
+// device_view.resolver, an alias of device_view.resolver.default or of services.resolver. It
+// removes the trusted header step when trusted_header.name is not set.
 return static function (ContainerConfigurator $container): void {
     $container->services()
         ->set('device_view.view_names', ViewNames::class)
@@ -32,6 +34,13 @@ return static function (ContainerConfigurator $container): void {
         ->set('device_view.resolver.step.switch', SwitchStep::class)
             ->args([new Reference('device_view.switch_parameter')])
         // device_view.resolver.step.remembered is in remember.php
+        ->set('device_view.resolver.step.trusted_header', TrustedHeaderStep::class)
+            ->args([
+                new AbstractArgument('trusted_header.name'),
+                new AbstractArgument('trusted_header.trusted_proxies_only'),
+                new Reference('device_view.view_names'),
+                new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+            ])
         ->set('device_view.resolver.step.detector', DetectorStep::class)
             ->args([new Reference('device_view.detector')])
 
@@ -41,6 +50,7 @@ return static function (ContainerConfigurator $container): void {
                     new Reference('device_view.resolver.step.forced'),
                     new Reference('device_view.resolver.step.switch'),
                     new Reference('device_view.resolver.step.remembered'),
+                    new Reference('device_view.resolver.step.trusted_header'),
                     new Reference('device_view.resolver.step.detector'),
                 ],
                 new AbstractArgument('default_view'),

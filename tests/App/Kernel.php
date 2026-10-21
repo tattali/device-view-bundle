@@ -75,6 +75,14 @@ final class Kernel extends BaseKernel
     private ?array $shellVerbosityBeforeBoot = null;
 
     /**
+     * The trusted proxies and headers of Request before boot, which framework.trusted_proxies
+     * sets for the whole process; null when not booted.
+     *
+     * @var array{proxies: array<string>, headers: int}|null
+     */
+    private ?array $trustedProxiesBeforeBoot = null;
+
+    /**
      * @param array<string, mixed>                       $deviceViewConfig the device_view configuration
      * @param array<string, class-string>                $services         public services of the application, by id
      * @param array<string, mixed>                       $framework        framework configuration added to the baseline, e.g. a session
@@ -102,6 +110,7 @@ final class Kernel extends BaseKernel
                 'server' => $_SERVER['SHELL_VERBOSITY'] ?? null,
                 'getenv' => getenv('SHELL_VERBOSITY'),
             ];
+            $this->trustedProxiesBeforeBoot = TrustedProxies::save();
         }
 
         parent::boot();
@@ -113,6 +122,7 @@ final class Kernel extends BaseKernel
      * On Symfony 8.0, FrameworkBundle::boot() registers the ErrorHandler and nothing removes
      * it, so PHPUnit marks the test risky. A debug kernel sets SHELL_VERBOSITY to 3 for the
      * whole process, so every kernel booted after it would print its info logs.
+     * framework.trusted_proxies sets the trusted proxies of every later Request too.
      */
     #[\Override]
     public function shutdown(): void
@@ -128,6 +138,11 @@ final class Kernel extends BaseKernel
             self::restore($_SERVER, $before['server']);
             putenv(false === $before['getenv'] ? 'SHELL_VERBOSITY' : 'SHELL_VERBOSITY='.$before['getenv']);
             $this->shellVerbosityBeforeBoot = null;
+        }
+
+        if (null !== $before = $this->trustedProxiesBeforeBoot) {
+            TrustedProxies::restore($before);
+            $this->trustedProxiesBeforeBoot = null;
         }
     }
 

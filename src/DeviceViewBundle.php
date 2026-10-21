@@ -89,7 +89,7 @@ final class DeviceViewBundle extends AbstractBundle
 
         $container->services()->alias('device_view.detector', $id);
 
-        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, redirect: array{methods: non-empty-list<string>, cache_control: string|null, mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, route_defaults: array{redirect: non-empty-string, remember: non-empty-string}, http_cache: array{vary: bool, private_when_remembering: bool}, services: array{resolver: string|null}} $config */
+        /** @var array{default_view: value-of<DeviceType>, tablet_as_mobile: bool, views: array{names: array<value-of<DeviceType>, string>}, switch: array{enabled: bool, parameter: non-empty-string, target: value-of<SwitchTarget>, status: int}, trusted_header: array{name: non-empty-string|null, trusted_proxies_only: bool}, redirect: array{methods: non-empty-list<string>, cache_control: string|null, mobile: RedirectOptions, tablet: RedirectOptions, desktop: RedirectOptions}, remember: array{storage: non-empty-string, on_switch: bool, detected_view: bool, lifetime: int, consented_lifetime: int, cookie: array{name: string, path: string, domain: string|null, secure: 'auto'|bool, http_only: bool, same_site: 'lax'|'strict'|'none'|null, raw: bool}, session: array{key: non-empty-string}}, consent: array{provider: non-empty-string|null, key: non-empty-string|null, cookie: non-empty-string|null}, route_defaults: array{redirect: non-empty-string, remember: non-empty-string}, http_cache: array{vary: bool, private_when_remembering: bool}, services: array{resolver: string|null}} $config */
         $defaultView = DeviceType::from($config['default_view']);
         $tabletAsMobile = $config['tablet_as_mobile'];
         $builder->getDefinition('device_view.view_names')->replaceArgument(0, $config['views']['names']);
@@ -100,6 +100,16 @@ final class DeviceViewBundle extends AbstractBundle
         $builder->getDefinition('device_view.device_view')
             ->replaceArgument(4, $tabletAsMobile && DeviceType::Tablet === $defaultView ? DeviceType::Mobile : $defaultView)
         ;
+
+        $trustedHeader = $config['trusted_header'];
+        if (null === $trustedHeader['name']) {
+            self::removeStep($builder, 'device_view.resolver.step.trusted_header');
+        } else {
+            $builder->getDefinition('device_view.resolver.step.trusted_header')
+                ->replaceArgument(0, $trustedHeader['name'])
+                ->replaceArgument(1, $trustedHeader['trusted_proxies_only'])
+            ;
+        }
 
         $switch = $config['switch'];
         $builder->getDefinition('device_view.switch_parameter')
@@ -223,6 +233,18 @@ final class DeviceViewBundle extends AbstractBundle
         }
 
         return $redirects;
+    }
+
+    /**
+     * Removes a step from the resolution order of the built-in resolver, and its service.
+     */
+    private static function removeStep(ContainerBuilder $builder, string $id): void
+    {
+        $resolver = $builder->getDefinition('device_view.resolver.default');
+        /** @var list<Reference> $steps */
+        $steps = $resolver->getArgument(0);
+        $resolver->replaceArgument(0, array_values(array_filter($steps, static fn (Reference $step): bool => $id !== (string) $step)));
+        $builder->removeDefinition($id);
     }
 
     /**

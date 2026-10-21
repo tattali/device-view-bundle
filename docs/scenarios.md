@@ -183,7 +183,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VAL-10 | Empty cookie is ignored and expired | — | `GET /view`, `Cookie: device_view=` | 200 `"desktop detector"`, `Set-Cookie: SC-DEL` | active |
 | VAL-11 | A forged value is found only when read | — | `GET /`, `Cookie: device_view=phone` | 200 `"home page"`, no `Set-Cookie`, no `Vary` | active |
 | VAL-12 | Forged session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = phone` | 200 `"desktop detector"`; the session no longer has `_device_view` | active |
-| VAL-13 | Invalid trusted header value is ignored | `TH` | `GET /view`, `X-Device-View: phone`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, X-Device-View, User-Agent]`; debug log `Ignored an invalid device view from the trusted header.` | planned |
+| VAL-13 | Invalid trusted header value is ignored | `TH` | `GET /view`, `X-Device-View: phone`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, X-Device-View, User-Agent]`; debug log `Ignored an invalid device view from the trusted header.` | active |
 | VAL-14 | Non-string session value is removed | `remember: { storage: session }` | `GET /view` with a previous session holding `_device_view = 3` (an integer) or `['a' => 'mobile']` (an array) | 200 `"desktop detector"`; the session no longer has `_device_view`; debug log `Ignored an invalid device view from the remember storage.` | active |
 
 ## 2. Resolution order and sources (RES), design.md sections 2 and 5
@@ -193,10 +193,10 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | RES-01 | Resolution is lazy | — | `GET /`, `UA=iphone` | 200 `"home page"`, no `Vary`, no `Set-Cookie`; the detector is not called; `ViewResolvedEvent` is not dispatched | planned |
 | RES-02 | Detector decides | — | `GET /view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | active |
 | RES-03 | `default_view` when the detector cannot tell | — | `GET /view`, `UA=empty` | 200 `"desktop default"`, `Vary: [Cookie, User-Agent]` | active |
-| RES-04 | Forced view beats every source | `TH` | `GET /set-view/tablet`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=iphone` | 200 `"tablet forced"`, no `Set-Cookie`, no `Vary` (nothing was consulted) | planned |
+| RES-04 | Forced view beats every source | `TH` | `GET /set-view/tablet`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=iphone` | 200 `"tablet forced"`, no `Set-Cookie`, no `Vary` (nothing was consulted) | active |
 | RES-05 | Switch beats remembered | `switch: { target: none }` | `GET /view?device_view=tablet`, `Cookie: device_view=mobile`, `UA=iphone` | 200 `"tablet switch"`, `Set-Cookie: SC(tablet)`, no `Vary` | active |
-| RES-06 | Remembered beats trusted header and detector | `TH` | `GET /view`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=desktop_chrome` | 200 `"mobile remembered"`, `Vary: [Cookie]` | planned |
-| RES-07 | Trusted header beats detector | `TH` | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"tablet trusted_header"`, `Vary: [Cookie, X-Device-View]` | planned |
+| RES-06 | Remembered beats trusted header and detector | `TH` | `GET /view`, `Cookie: device_view=mobile`, `X-Device-View: desktop`, `UA=desktop_chrome` | 200 `"mobile remembered"`, `Vary: [Cookie]` | active |
+| RES-07 | Trusted header beats detector | `TH` | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"tablet trusted_header"`, `Vary: [Cookie, X-Device-View]` | active |
 | RES-08 | The view is resolved once per request | — (TwigBundle registered) | `GET /twig`, `UA=iphone`, the template and a `ViewResolvedEvent` listener read the view several times | the detector is called once; `ViewResolvedEvent` is dispatched once | planned |
 | RES-09 | Sub-requests read the main request's view | — | `GET /with-sub-request`, `UA=iphone` | 200 `"main=mobile sub=mobile detector"`; `ViewResolvedEvent` dispatched once; the sub-request has no `_device_view` attribute | planned |
 | RES-10 | The context lives in the main request | — | `GET /view`, `UA=iphone` | after `kernel.request`, the main request attribute `_device_view` is a `DeviceViewContext` | active |
@@ -219,7 +219,7 @@ The scenarios assume these routes in `tests/App`. Each PR adds the routes its sc
 | VW-10 | Renamed views: remembered | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=t` | 200 `"t remembered"` | active |
 | VW-11 | Renamed views: a stored canonical name is forged | `views: { names: { mobile: m, tablet: t, desktop: d } }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"d detector"`, `Set-Cookie: SC-DEL` | active |
 | VW-12 | Renamed views: cross-host redirect | `views: { names: { mobile: m } }`, `M` | `GET http://www.example.com/blog/post`, `UA=iphone` | 302, `Location: https://m.example.com/blog/post?device_view=m` | active |
-| VW-13 | Renamed views: trusted header | `views: { names: { tablet: t } }`, `TH` | `GET /view`, `X-Device-View: t` | 200 `"t trusted_header"` | planned |
+| VW-13 | Renamed views: trusted header | `views: { names: { tablet: t } }`, `TH` | `GET /view`, `X-Device-View: t` | 200 `"t trusted_header"` | active |
 | VW-14 | Renaming one view keeps the others | `views: { names: { mobile: phone } }` | `GET /view?device_view=tablet` | 302, `Location: /view`, `Set-Cookie: SC(tablet)` | active |
 
 ## 4. Detectors (DET), design.md section 9
@@ -343,7 +343,7 @@ denied is `Cookie: tarteaucitron=!device_view=false`, unknown is no consent cook
 | REM-13 | A remembered view is not written again | `remember: { detected_view: true }` | `GET /view`, `Cookie: device_view=mobile` | 200 `"mobile remembered"`, no `Set-Cookie` | active |
 | REM-14 | Nothing is written when the view is not used | `remember: { detected_view: true }` | `GET /`, `UA=iphone` | 200 `"home page"`, no `Set-Cookie` | active |
 | REM-15 | `default_view` is not a detected view | `remember: { detected_view: true }` | `GET /view`, `UA=empty` | 200 `"desktop default"`, no `Set-Cookie` | active |
-| REM-16 | A trusted header view counts as detected | `TH`, `remember: { detected_view: true }` | `GET /view`, `X-Device-View: tablet` | 200 `"tablet trusted_header"`, `Set-Cookie: SC(tablet)` | planned |
+| REM-16 | A trusted header view counts as detected | `TH`, `remember: { detected_view: true }` | `GET /view`, `X-Device-View: tablet` | 200 `"tablet trusted_header"`, `Set-Cookie: SC(tablet)` | active |
 | REM-17 | `setRemember(false)` stops a write | `switch: { target: none }` | `GET /set-remember-off?device_view=mobile` | 200 `"mobile switch"`, no `Set-Cookie` | active |
 | REM-18 | `setView($view, true)` writes like a switch | — | `GET /set-view/tablet?remember=1` | 200 `"tablet forced"`, `Set-Cookie: SC(tablet)` | active |
 | REM-19 | `setView($view, true)` with consent granted | `TAC` | `GET /set-view/tablet?remember=1`, granted | `Set-Cookie: SC(tablet, 31536000)` | active |
@@ -621,7 +621,7 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 | VARY-02 | Detector decided | — | `GET /view`, `UA=iphone` | `Vary: [Cookie, User-Agent]` | active |
 | VARY-03 | Remembered decided | — | `GET /view`, `Cookie: device_view=tablet` | `Vary: [Cookie]` | active |
 | VARY-04 | Switch decided | `switch: { target: none }` | `GET /view?device_view=tablet` | no `Vary` | active |
-| VARY-05 | Trusted header decided | `TH` | `GET /view`, `X-Device-View: tablet` | `Vary: [Cookie, X-Device-View]` | planned |
+| VARY-05 | Trusted header decided | `TH` | `GET /view`, `X-Device-View: tablet` | `Vary: [Cookie, X-Device-View]` | active |
 | VARY-06 | Appended to the controller's values | — | `GET /view`, `UA=iphone`, the controller sets `Vary: Accept-Language` | `Vary: [Accept-Language, Cookie, User-Agent]` | active |
 | VARY-07 | No duplicates | — | `GET /view`, `UA=iphone`, the controller sets `Vary: user-agent` | `Vary: [user-agent, Cookie]` | active |
 | VARY-08 | `http_cache.vary: false` | `http_cache: { vary: false }` | `GET /view`, `UA=iphone` | no `Vary` | active |
@@ -643,11 +643,12 @@ eyJ1c2VyX2lkIjoiMGYxZTJkM2MtNGI1YS02OTc4LTg3OTYtYTViNGMzZDJlMWYwMCIsInB1cnBvc2Vz
 
 | ID | Scenario | Config | Request | Expected | Status |
 |---|---|---|---|---|---|
-| TH-01 | Read from a trusted proxy | `TH` | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"tablet trusted_header"`, `Vary: [Cookie, X-Device-View]` | planned |
-| TH-02 | Ignored from an untrusted client | `TH` | `GET /view` with `REMOTE_ADDR: 203.0.113.9`, `X-Device-View: tablet`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | planned |
-| TH-03 | `trusted_proxies_only: false` | `trusted_header: { name: X-Device-View, trusted_proxies_only: false }` | as TH-02 | 200 `"tablet trusted_header"` | planned |
-| TH-04 | Value is trimmed and lower-cased | `TH` | `GET /view`, `X-Device-View: " Tablet "` | 200 `"tablet trusted_header"` | planned |
-| TH-05 | Not configured: never read | — | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | planned |
+| TH-01 | Read from a trusted proxy | `TH` | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"tablet trusted_header"`, `Vary: [Cookie, X-Device-View]` | active |
+| TH-02 | Ignored from an untrusted client | `TH` | `GET /view` with `REMOTE_ADDR: 203.0.113.9`, `X-Device-View: tablet`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | active |
+| TH-03 | `trusted_proxies_only: false` | `trusted_header: { name: X-Device-View, trusted_proxies_only: false }` | as TH-02 | 200 `"tablet trusted_header"` | active |
+| TH-04 | Value is trimmed and lower-cased | `TH` | `GET /view`, `X-Device-View: " Tablet "` | 200 `"tablet trusted_header"` | active |
+| TH-05 | Not configured: never read | — | `GET /view`, `X-Device-View: tablet`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, User-Agent]` | active |
+| TH-06 | Absent from a trusted proxy: still listed in `Vary` | `TH` | `GET /view`, `UA=iphone` | 200 `"mobile detector"`, `Vary: [Cookie, X-Device-View, User-Agent]` | active |
 
 ## 16. Skipped requests (SKIP), design.md sections 4 and 5
 
@@ -841,7 +842,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-41 | Device redirect status set | `redirect: { mobile: { status: 304 } }` | container build | message contains `The value 304 is not allowed for path "device_view.redirect.mobile.status"` | active |
 | CFG-42 | Redirect methods not empty | `redirect: { methods: [] }` | container build | message contains `device_view.redirect.methods must list at least one method.` | active |
 | CFG-43 | Skip path regex | `skip: { paths: ['^/(api'] }` | container build | message contains `device_view.skip.paths contains an invalid regular expression: "^/(api".` | planned |
-| CFG-44 | Trusted header name | `trusted_header: { name: 'X Device' }` | container build | message contains `device_view.trusted_header.name "X Device" is not a valid header name.` | planned |
+| CFG-44 | Trusted header name | `trusted_header: { name: 'X Device' }`, then `trusted_header: { name: 5 }` | container build | message contains `device_view.trusted_header.name "X Device" is not a valid header name.`, then `device_view.trusted_header.name must be null or a header name, got 5.` | active |
 | CFG-45 | Twig prefix | `twig: { prefix: 'dv-' }` | container build | message contains `device_view.twig.prefix "dv-" must be empty or match ^[a-z_][a-z0-9_]*$.` | planned |
 | CFG-46 | Auto without any detector package | `detector: { id: auto }`, neither library installed | container build | `LogicException`, the DET-AUTO-03 message | active |
 | CFG-47 | Mobile Detect not installed | `detector: { id: mobile_detect }`, mobiledetect not installed | container build | `LogicException`, message `The "mobile_detect" detector needs mobiledetect/mobiledetectlib. Run "composer require mobiledetect/mobiledetectlib", or set device_view.detector.id to another detector.` | active |
@@ -860,6 +861,7 @@ The exception is `InvalidConfigurationException` unless said.
 | CFG-60 | Route default keys differ | `route_defaults: { redirect: _dv, remember: _dv }` | container build | message contains `device_view.route_defaults.redirect and device_view.route_defaults.remember must be different route defaults, both are "_dv".` | active |
 | CFG-61 | A route default key cannot be the context attribute | `route_defaults: { redirect: _device_view }` | container build | message contains `device_view.route_defaults.redirect cannot be "_device_view", the request attribute that holds the device view context.` | active |
 | CFG-62 | `http_cache` keys are booleans | `http_cache: { vary: 'yes' }`, then `http_cache: { private_when_remembering: 'yes' }` | container build | message contains `Invalid type for path "device_view.http_cache.vary"` (`private_when_remembering` for the second) | active |
+| CFG-63 | `trusted_header.trusted_proxies_only` is a boolean | `trusted_header: { name: X-Device-View, trusted_proxies_only: 'yes' }` | container build | message contains `Invalid type for path "device_view.trusted_header.trusted_proxies_only"` | active |
 
 ## 25. Configuration reference (REF), design.md section 12
 
@@ -1004,6 +1006,12 @@ the area; if the owner disagrees, the rows change before they become active.
   e.g. `Vary: Accept-Language` then `Vary: Cookie, User-Agent`. The listener runs on
   `kernel.response` at priority 0, before the remember listener (design.md section 5, step 5);
   with `http_cache.vary: false` it is not registered (VARY-08).
+- The trusted header is read only when `trusted_header.name` is set and, with
+  `trusted_proxies_only`, only from a trusted proxy. The header of an untrusted client is not
+  read, so it is not listed in `Vary` (TH-02). Once read, the header counts as consulted even when
+  it is absent or invalid, and is listed in `Vary` under its configured name (TH-06, VAL-13). An
+  invalid value is logged at debug level and nothing is expired: the request holds it, not a
+  storage. A header name is an RFC 9110 token (CFG-44).
 - Cancelling a switch redirect keeps the switched view and its remember (EVT-RED-05).
 - Matomo with `client_hints: true` passes and varies on `Sec-CH-UA`, `Sec-CH-UA-Arch`,
   `Sec-CH-UA-Bitness`, `Sec-CH-UA-Full-Version`, `Sec-CH-UA-Full-Version-List`,
