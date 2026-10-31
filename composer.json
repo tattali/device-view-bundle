@@ -41,7 +41,7 @@
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
         "phpstan/phpstan-symfony": "^2.0",
-        "phpunit/phpunit": "^12.5 || ^13.4",
+        "phpunit/phpunit": "^13.4",
         "shipmonk/composer-dependency-analyser": "^1.8",
         "symfony/cache": "^8.0",
         "symfony/event-dispatcher": "^8.0",
