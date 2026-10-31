@@ -22,6 +22,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -93,6 +94,7 @@ final class Kernel extends BaseKernel
      * @param array<string, class-string>                $services         public services of the application, by id
      * @param array<string, mixed>                       $framework        framework configuration added to the baseline, e.g. a session
      * @param array<string, array{class-string, string}> $decorators       public services of the application decorating a service, by id: [class, id of the decorated service]; the class takes the decorated service as its only argument
+     * @param list<BundleInterface>                      $extraBundles     bundles registered after this bundle, e.g. the optional TwigBundle
      */
     public function __construct(
         private readonly array $deviceViewConfig = [],
@@ -101,9 +103,10 @@ final class Kernel extends BaseKernel
         private readonly array $services = [],
         private readonly array $framework = [],
         private readonly array $decorators = [],
+        private readonly array $extraBundles = [],
     ) {
         parent::__construct($environment, $debug);
-        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug, $services, $framework, $decorators]));
+        $this->configHash = hash('xxh128', serialize([$deviceViewConfig, $environment, $debug, $services, $framework, $decorators, array_map(static fn (BundleInterface $bundle): string => $bundle::class, $extraBundles)]));
     }
 
     #[\Override]
@@ -157,6 +160,7 @@ final class Kernel extends BaseKernel
     {
         yield new FrameworkBundle();
         yield new DeviceViewBundle();
+        yield from $this->extraBundles;
     }
 
     #[\Override]

@@ -48,6 +48,7 @@
         "symfony/filesystem": "^8.0",
         "symfony/framework-bundle": "^8.0",
         "symfony/routing": "^8.0",
+        "symfony/translation-contracts": "^3.6",
         "symfony/twig-bundle": "^8.0",
         "symfony/web-profiler-bundle": "^8.0",
         "twig/twig": "^3.21"
