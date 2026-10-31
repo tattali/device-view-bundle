@@ -60,7 +60,9 @@
     "suggest": {
         "matomo/device-detector": "To detect the view with Matomo Device Detector (^6.4.2)",
         "mobiledetect/mobiledetectlib": "To detect the view with Mobile Detect (^4.8.07)",
-        "twig/twig": "To use the view functions in Twig templates (^3.21)"
+        "symfony/twig-bundle": "To use the planned Twig helpers of the view in your templates (^8.0)",
+        "symfony/web-profiler-bundle": "To see the view in the profiler panel, which is planned (^8.0)",
+        "twig/twig": "To use the planned view functions in Twig templates (^3.21)"
     },
     "autoload": {
         "psr-4": {
